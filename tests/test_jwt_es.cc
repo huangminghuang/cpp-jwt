@@ -137,14 +137,52 @@ TEST (ESAlgo, ES384EncodingDecodingValidTest)
   EXPECT_TRUE (dec_obj.has_claim("exp"));
   EXPECT_TRUE (obj.payload().has_claim_with_value("exp", 4682665886));
 
-  std::map<std::string, std::string> keystore{{"arun.muralidharan", key}};
+}
 
-  auto l = [&keystore](const jwt::jwt_payload& payload){ 
-    auto iss = payload.get_claim_value<std::string>("iss");
-    return keystore[iss];
-  };
-  auto dec_obj2 = jwt::decode(enc_str, algorithms({"es384"}), verify(true), secret(l));
+TEST (ESAlgo, ES384EncodingDecodingNewApiTest)
+{
+  using namespace jwt::params;
+
+  jwt::jwt_object obj;
+
+  obj.add_claim("iss", "arun.muralidharan")
+     .add_claim("aud", "all")
+     .add_claim("exp", 4682665886) // Expires on Sunday, May 22, 2118 12:31:26 PM GMT
+     ;
+
+  auto enc_str = obj.signature(secret<jwt::algo::ES384>(jwt::pem_file{EC384_PRIV_KEY}));
+
+  std::error_code ec;
+  auto dec_obj = jwt::decode(enc_str, ec, verify(true), secret<jwt::algo::ES384>(jwt::pem_file{EC384_PUB_KEY}));
+
+  EXPECT_FALSE (ec);
+  EXPECT_EQ (dec_obj.header().algo(), jwt::algorithm::ES384);
+  EXPECT_TRUE (dec_obj.has_claim("exp"));
+  EXPECT_TRUE (obj.payload().has_claim_with_value("exp", 4682665886));
+
+  jwt::evp_pubkey mykey{jwt::pem_file{EC384_PUB_KEY}};
+  EXPECT_TRUE(mykey.get());
+
+  auto dec_obj2 = jwt::decode(enc_str, ec, verify(true), secret([&mykey](const jwt::jwt_object& obj) -> jwt::evp_pubkey { 
+    if (obj.header().algo() == jwt::algorithm::ES384 && obj.payload().get_claim_value<std::string>("iss") == "arun.muralidharan") {
+      return mykey;
+    }
+    return {};
+  }));
+
+  EXPECT_FALSE (ec);
   EXPECT_EQ (dec_obj2.header().algo(), jwt::algorithm::ES384);
+
+  auto dec_obj3 = jwt::decode(enc_str, ec, verify(true), secret<jwt::algo::ES384>([](const jwt::jwt_object& obj) -> jwt::evp_pubkey { 
+    if (obj.payload().get_claim_value<std::string>("iss") == "arun.muralidharan") {
+      return jwt::pem_file{EC384_PUB_KEY};
+    }
+    return {};
+  }));
+
+  EXPECT_FALSE (ec);
+  EXPECT_EQ (dec_obj3.header().algo(), jwt::algorithm::ES384);
+
 }
 
 int main(int argc, char* argv[]) {

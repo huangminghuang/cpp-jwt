@@ -790,67 +790,6 @@ private:
   jwt_set::header_claim_set_t claim_names_;
 };
 
-/**
- * Component class for representing JWT signature.
- *
- * Provides APIs for:
- * a) Encoding header and payload to JWS string parts.
- * b) Verifying the signature by matching it with header and payload
- * signature.
- */
-struct jwt_signature
-{
-public: // 'tors
-  /// Default constructor
-  jwt_signature() = default;
-
-  /**
-   * Constructor which takes the key.
-   */
-  jwt_signature(const jwt::string_view key)
-    : key_(key.data(), key.length())
-  {
-  }
-
-  /// Default copy and assignment operator
-  jwt_signature(const jwt_signature&) = default;
-  jwt_signature& operator=(const jwt_signature&) = default;
-
-  ~jwt_signature() = default;
-
-public: // Exposed APIs
-  /**
-   * Encodes the header and payload to get the
-   * three part JWS signature.
-   */
-  std::string encode(const jwt_header& header, 
-                     const jwt_payload& payload,
-                     std::error_code& ec);
-
-  /**
-   * Verifies the JWS signature.
-   * Returns `verify_result_t` which is a pair
-   * of bool and error_code.
-   */
-  verify_result_t verify(const jwt_header& header,
-              const jwt::string_view hdr_pld_sign,
-              const jwt::string_view jwt_sign);
-
-private: // Private implementation
-  /*!
-   */
-  sign_func_t get_sign_algorithm_impl(const jwt_header& hdr) const noexcept;
-
-  /*!
-   */
-  verify_func_t get_verify_algorithm_impl(const jwt_header& hdr) const noexcept;
-
-private: // Data members;
-
-  /// The key for creating the JWS
-  std::string key_;
-};
-
 
 /**
  * The main class representing the JWT object.
@@ -1076,15 +1015,27 @@ public: // Exposed APIs
    */
   std::string signature() const;
 
+  template <typename Key> 
+  std::string signature(params::detail::secret_param<Key, algo::UNKN>&& s, std::error_code& ec) const;
+
+  template <typename Key, typename Hasher> 
+  std::enable_if_t<!std::is_same<Hasher, algo::UNKN>::value, std::string> 
+  signature(params::detail::secret_param<Key, Hasher>&& s, std::error_code& ec);
+
+  template <typename Key> 
+  std::string signature(params::detail::secret_param<Key, algo::UNKN>&& s) const;
+  
+  template <typename Key, typename Hasher> 
+  std::enable_if_t<!std::is_same<Hasher, algo::UNKN>::value, std::string> 
+  signature(params::detail::secret_param<Key, Hasher>&& s);
+
   /**
    * Verify the signature.
    * TODO: Returns an error_code instead of taking
    * by reference.
    */
-  template <typename Params, typename SequenceT>
-  std::error_code verify(
-      const Params& dparams,
-      const params::detail::algorithms_param<SequenceT>& algos) const;
+  template <typename Params>
+  std::error_code verify(const Params& dparams) const;
 
 private: // private APIs
   /**
@@ -1099,8 +1050,8 @@ private: // private APIs
 
   /**
    */
-  template <typename... Rest>
-  void set_parameters(params::detail::secret_param, Rest&&...);
+  template <typename Key, typename Hash, typename... Rest>
+  void set_parameters(params::detail::secret_param<Key, Hash>&&, Rest&&...);
 
   /**
    */
@@ -1118,11 +1069,8 @@ private: // private APIs
 
 public: //TODO: Not good
   /// Decode parameters
-  template <typename DecodeParams, typename... Rest>
-  static void set_decode_params(DecodeParams& dparams, params::detail::secret_param s, Rest&&... args);
-
-  template <typename DecodeParams, typename T, typename... Rest>
-  static void set_decode_params(DecodeParams& dparams, params::detail::secret_function_param<T>&& s, Rest&&... args);
+  template <typename DecodeParams, typename Key, typename Hasher, typename... Rest>
+  static void set_decode_params(DecodeParams& dparams, params::detail::secret_param<Key, Hasher>&& v, Rest&&... args);
 
   template <typename DecodeParams, typename... Rest>
   static void set_decode_params(DecodeParams& dparams, params::detail::leeway_param l, Rest&&... args);
@@ -1144,6 +1092,9 @@ public: //TODO: Not good
 
   template <typename DecodeParams, typename... Rest>
   static void set_decode_params(DecodeParams& dparams, params::detail::validate_jti_param v, Rest&&... args);
+
+  template <typename DecodeParams, typename T, typename... Rest>
+  static void set_decode_params(DecodeParams& dparams, params::detail::checker_param<T>&& v, Rest&&... args);
 
   template <typename DecodeParams>
   static void set_decode_params(DecodeParams& dparams);
@@ -1197,7 +1148,12 @@ private: // Data Members
  */
 template <typename SequenceT, typename... Args>
 jwt_object decode(const jwt::string_view enc_str, 
-                  const params::detail::algorithms_param<SequenceT>& algos, 
+                  params::detail::algorithms_param<SequenceT>&& algos, 
+                  std::error_code& ec,
+                  Args&&... args);
+
+template <typename... Args>
+jwt_object decode(const jwt::string_view enc_str, 
                   std::error_code& ec,
                   Args&&... args);
 
@@ -1207,7 +1163,11 @@ jwt_object decode(const jwt::string_view enc_str,
  */
 template <typename SequenceT, typename... Args>
 jwt_object decode(const jwt::string_view enc_str,
-                  const params::detail::algorithms_param<SequenceT>& algos,
+                  params::detail::algorithms_param<SequenceT>&& algos,
+                  Args&&... args);
+
+template <typename... Args>
+jwt_object decode(const jwt::string_view enc_str, 
                   Args&&... args);
 
 

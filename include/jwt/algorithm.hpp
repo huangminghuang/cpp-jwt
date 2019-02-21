@@ -36,16 +36,12 @@ SOFTWARE.
 
 #include <openssl/bn.h>
 #include <openssl/bio.h>
-#include <openssl/pem.h>
-#include <openssl/evp.h>
 #include <openssl/hmac.h>
 #include <openssl/ecdsa.h>
 #include <openssl/buffer.h>
 #include <openssl/opensslv.h>
 
-#include "jwt/exceptions.hpp"
-#include "jwt/string_view.hpp"
-#include "jwt/error_codes.hpp"
+#include "jwt/evp_key.hpp"
 #include "jwt/base64.hpp"
 #include "jwt/config.hpp"
 
@@ -55,148 +51,16 @@ namespace jwt {
 using sign_result_t = std::pair<std::string, std::error_code>;
 /// The result type of verification function
 using verify_result_t = std::pair<bool, std::error_code>;
-/// The function pointer type for the signing function
-using sign_func_t   = sign_result_t (*) (const jwt::string_view key, 
-                                         const jwt::string_view data);
-/// The function pointer type for the verifying function
-using verify_func_t = verify_result_t (*) (const jwt::string_view key,
-                                           const jwt::string_view head,
-                                           const jwt::string_view jwt_sign);
 
-namespace algo {
+// forward declaration
+template <typename Hasher>
+struct HMACSign;
 
-//Me: TODO: All these can be done using code generaion.
-//Me: NO. NEVER. I hate Macros.
-//Me: You can use templates too.
-//Me: No. I would rather prefer explicit.
-//Me: Ok. You win.
-//Me: Same to you.
+template <typename Hasher>
+struct PEMSign;
 
-/**
- * HS256 algorithm.
- */
-struct HS256
-{
-  const EVP_MD* operator()() noexcept
-  {
-    return EVP_sha256();
-  }
-};
-
-/**
- * HS384 algorithm.
- */
-struct HS384
-{
-  const EVP_MD* operator()() noexcept
-  {
-    return EVP_sha384();
-  }
-};
-
-/**
- * HS512 algorithm.
- */
-struct HS512
-{
-  const EVP_MD* operator()() noexcept
-  {
-    return EVP_sha512();
-  }
-};
-
-/**
- * NONE algorithm.
- */
-struct NONE
-{
-  void operator()() noexcept
-  {
-    return;
-  }
-};
-
-/**
- * RS256 algorithm.
- */
-struct RS256
-{
-  static const int type = EVP_PKEY_RSA;
-
-  const EVP_MD* operator()() noexcept
-  {
-    return EVP_sha256();
-  }
-};
-
-/**
- * RS384 algorithm.
- */
-struct RS384
-{
-  static const int type = EVP_PKEY_RSA;
-
-  const EVP_MD* operator()() noexcept
-  {
-    return EVP_sha384();
-  }
-};
-
-/**
- * RS512 algorithm.
- */
-struct RS512
-{
-  static const int type = EVP_PKEY_RSA;
-
-  const EVP_MD* operator()() noexcept
-  {
-    return EVP_sha512();
-  }
-};
-
-/**
- * ES256 algorithm.
- */
-struct ES256
-{
-  static const int type = EVP_PKEY_EC;
-
-  const EVP_MD* operator()() noexcept
-  {
-    return EVP_sha256();
-  }
-};
-
-/**
- * ES384 algorithm.
- */
-struct ES384
-{
-  static const int type = EVP_PKEY_EC;
-
-  const EVP_MD* operator()() noexcept
-  {
-    return EVP_sha384();
-  }
-};
-
-/**
- * ES512 algorithm.
- */
-struct ES512
-{
-  static const int type = EVP_PKEY_EC;
-
-  const EVP_MD* operator()() noexcept
-  {
-    return EVP_sha512();
-  }
-};
-
-} //END Namespace algo
-
-
+struct UNKNSign;
+                                          
 /**
  * JWT signing algorithm types.
  */
@@ -215,6 +79,165 @@ enum class algorithm
   UNKN,
   TERM,
 };
+
+namespace algo {
+
+//Me: TODO: All these can be done using code generaion.
+//Me: NO. NEVER. I hate Macros.
+//Me: You can use templates too.
+//Me: No. I would rather prefer explicit.
+//Me: Ok. You win.
+//Me: Same to you.
+
+/**
+ * HS256 algorithm.
+ */
+struct HS256
+{
+  typedef HMACSign<HS256> signer;
+  static const auto alg = algorithm::HS256;
+  const EVP_MD* operator()() noexcept
+  {
+    return EVP_sha256();
+  }
+};
+
+/**
+ * HS384 algorithm.
+ */
+struct HS384
+{
+  typedef HMACSign<HS384> signer;
+  static const auto alg = algorithm::HS384;
+  const EVP_MD* operator()() noexcept
+  {
+    return EVP_sha384();
+  }
+};
+
+/**
+ * HS512 algorithm.
+ */
+struct HS512
+{
+  typedef HMACSign<HS512> signer;
+  static const auto alg = algorithm::HS512;
+  const EVP_MD* operator()() noexcept
+  {
+    return EVP_sha512();
+  }
+};
+
+/**
+ * NONE algorithm.
+ */
+struct NONE
+{
+  typedef HMACSign<NONE> signer;
+  static const auto alg = algorithm::NONE;
+  void operator()() noexcept
+  {
+    return;
+  }
+};
+
+/**
+ * RS256 algorithm.
+ */
+struct RS256
+{
+  static const int type = EVP_PKEY_RSA;
+  typedef PEMSign<RS256> signer;
+  static const auto alg = algorithm::RS256;
+  const EVP_MD* operator()() noexcept
+  {
+    return EVP_sha256();
+  }
+};
+
+/**
+ * RS384 algorithm.
+ */
+struct RS384
+{
+  static const int type = EVP_PKEY_RSA;
+  typedef PEMSign<RS384> signer;
+  static const auto alg = algorithm::RS384;
+
+  const EVP_MD* operator()() noexcept
+  {
+    return EVP_sha384();
+  }
+};
+
+/**
+ * RS512 algorithm.
+ */
+struct RS512
+{
+  static const int type = EVP_PKEY_RSA;
+  typedef PEMSign<RS512> signer;
+  static const auto alg = algorithm::RS512;
+
+  const EVP_MD* operator()() noexcept
+  {
+    return EVP_sha512();
+  }
+};
+
+/**
+ * ES256 algorithm.
+ */
+struct ES256
+{
+  static const int type = EVP_PKEY_EC;
+  typedef PEMSign<ES256> signer;
+  static const auto alg = algorithm::ES256;
+
+  const EVP_MD* operator()() noexcept
+  {
+    return EVP_sha256();
+  }
+};
+
+/**
+ * ES384 algorithm.
+ */
+struct ES384
+{
+  static const int type = EVP_PKEY_EC;
+  typedef PEMSign<ES384> signer;
+  static const auto alg = algorithm::ES384;
+
+  const EVP_MD* operator()() noexcept
+  {
+    return EVP_sha384();
+  }
+};
+
+/**
+ * ES512 algorithm.
+ */
+struct ES512
+{
+  static const int type = EVP_PKEY_EC;
+  typedef PEMSign<ES512> signer;
+  static const auto alg = algorithm::ES512;
+
+  const EVP_MD* operator()() noexcept
+  {
+    return EVP_sha512();
+  }
+};
+
+struct UNKN
+{
+  typedef UNKNSign signer;
+  static const auto alg = algorithm::UNKN;
+};
+} //END Namespace algo
+
+
 
 
 /**
@@ -266,12 +289,6 @@ inline SCOPED_ENUM algorithm str_to_alg(const jwt::string_view alg) noexcept
   assert (0 && "Code not reached");
 }
 
-/**
- */
-inline void bio_deletor(BIO* ptr)
-{
-  if (ptr) BIO_free_all(ptr);
-}
 
 /**
  */
@@ -280,12 +297,6 @@ inline void evp_md_ctx_deletor(EVP_MD_CTX* ptr)
   if (ptr) EVP_MD_CTX_destroy(ptr);
 }
 
-/**
- */
-inline void ec_key_deletor(EC_KEY* ptr)
-{
-  if (ptr) EC_KEY_free(ptr);
-}
 
 /**
  */
@@ -294,28 +305,15 @@ inline void ec_sig_deletor(ECDSA_SIG* ptr)
   if (ptr) ECDSA_SIG_free(ptr);
 }
 
-/**
- */
-inline void ev_pkey_deletor(EVP_PKEY* ptr)
-{
-  if (ptr) EVP_PKEY_free(ptr);
-}
-
 /// Useful typedefs
-using bio_deletor_t = decltype(&bio_deletor);
-using BIO_uptr = std::unique_ptr<BIO, bio_deletor_t>;
+
 
 using evp_mdctx_deletor_t = decltype(&evp_md_ctx_deletor);
 using EVP_MDCTX_uptr = std::unique_ptr<EVP_MD_CTX, evp_mdctx_deletor_t>;
 
-using eckey_deletor_t = decltype(&ec_key_deletor);
-using EC_KEY_uptr = std::unique_ptr<EC_KEY, eckey_deletor_t>;
-
 using ecsig_deletor_t = decltype(&ec_sig_deletor);
 using EC_SIG_uptr = std::unique_ptr<ECDSA_SIG, ecsig_deletor_t>;
 
-using evpkey_deletor_t = decltype(&ev_pkey_deletor);
-using EC_PKEY_uptr = std::unique_ptr<EVP_PKEY, evpkey_deletor_t>;
 
 
 
@@ -334,6 +332,8 @@ struct HMACSign
   /// The type of Hashing algorithm
   using hasher_type = Hasher;
 
+  HMACSign(SCOPED_ENUM algorithm){}
+  HMACSign() = default;
   /**
    * Signs the input using the HMAC algorithm using the
    * provided key.
@@ -347,8 +347,10 @@ struct HMACSign
    *    Any allocation failure will result in jwt::MemoryAllocationException
    *    being thrown.
    */
-  static sign_result_t sign(const jwt::string_view key, const jwt::string_view data)
+  sign_result_t sign(const jwt::string_view key, const jwt::string_view data) const
   {
+    if (key.empty()) return { std::string{}, std::error_code{AlgorithmErrc::KeyNotFoundErr} };
+
     std::string sign;
     sign.resize(EVP_MAX_MD_SIZE);
     std::error_code ec{};
@@ -391,9 +393,8 @@ struct HMACSign
    *    Any allocation failure will result in jwt::MemoryAllocationException
    *    being thrown.
    */
-  static verify_result_t 
-  verify(const jwt::string_view key, const jwt::string_view head, const jwt::string_view sign);
-
+  verify_result_t 
+  verify(const jwt::string_view key, const jwt::string_view head, const jwt::string_view sign) const;
 };
 
 /**
@@ -416,11 +417,13 @@ template <>
 struct HMACSign<algo::NONE>
 {
   using hasher_type = algo::NONE;
+  HMACSign(SCOPED_ENUM algorithm){}
+  HMACSign() = default;
 
   /**
    * Basically a no-op. Sets the error code to NoneAlgorithmUsed.
    */
-  static sign_result_t sign(const jwt::string_view key, const jwt::string_view data)
+  sign_result_t sign(const jwt::string_view key, const jwt::string_view data) const
   {
     (void)key;
     (void)data;
@@ -433,8 +436,8 @@ struct HMACSign<algo::NONE>
   /**
    * Basically a no-op. Sets the error code to NoneAlgorithmUsed.
    */
-  static verify_result_t
-  verify(const jwt::string_view key, const jwt::string_view head, const jwt::string_view sign)
+  verify_result_t
+  verify(const jwt::string_view key, const jwt::string_view head, const jwt::string_view sign) const
   {
     (void)key;
     (void)head;
@@ -447,6 +450,21 @@ struct HMACSign<algo::NONE>
 
 };
 
+struct UNKNSign
+{
+  using hasher_type = algo::UNKN;
+  UNKNSign(SCOPED_ENUM algorithm alg): alg_(alg){}
+
+  sign_result_t sign(jwt::string_view key, jwt::string_view data) const;
+  sign_result_t sign(const jwt::evp_privkey& key, jwt::string_view data) const;
+
+  /**
+   */
+  verify_result_t verify(jwt::string_view key, jwt::string_view head, jwt::string_view sign) const;
+  verify_result_t verify(const jwt::evp_pubkey& key, jwt::string_view head, jwt::string_view sign) const;
+
+  algorithm alg_;
+};
 
 
 /**
@@ -464,6 +482,8 @@ struct PEMSign
 public:
   /// The type of Hashing algorithm
   using hasher_type = Hasher;
+  PEMSign(SCOPED_ENUM algorithm alg){}
+  PEMSign() = default;
 
   /**
    * Signs the input data using PEM encryption algorithm.
@@ -477,14 +497,19 @@ public:
    *  Any allocation failure would be thrown out as
    *  jwt::MemoryAllocationException.
    */
-  static sign_result_t sign(const jwt::string_view key, const jwt::string_view data)
+  sign_result_t sign(const jwt::string_view key, const jwt::string_view data) const
   {
+
+    return sign(evp_privkey{pem_str{key}}, data );
+  }
+
+  sign_result_t sign(const evp_privkey& pkey, const jwt::string_view data) const
+  {
+    if (pkey.empty()) return { std::string{}, std::error_code{AlgorithmErrc::KeyNotFoundErr} };
+
     std::error_code ec{};
 
     std::string ii{data.data(), data.length()};
-
-    EC_PKEY_uptr pkey{load_key(key, ec), ev_pkey_deletor};
-    if (ec) return { std::string{}, ec };
 
     //TODO: Use stack string here ?
     std::string sign = evp_digest(pkey.get(), data, ec);
@@ -492,7 +517,7 @@ public:
     if (ec) return { std::string{}, ec };
 
     if (Hasher::type == EVP_PKEY_EC) {
-      sign = public_key_ser(pkey.get(), sign, ec);
+      sign = public_key_ser(pkey, sign, ec);
     }
 
     return { std::move(sign), ec };
@@ -500,14 +525,13 @@ public:
 
   /**
    */
-  static verify_result_t
-  verify(const jwt::string_view key, const jwt::string_view head, const jwt::string_view sign);
+  verify_result_t
+  verify(const jwt::string_view key, const jwt::string_view head, const jwt::string_view sign) const;
+
+  verify_result_t 
+  verify(const evp_pubkey& key, const jwt::string_view head, const jwt::string_view sign) const;
 
 private:
-
-  /*!
-   */
-  static EVP_PKEY* load_key(const jwt::string_view key, std::error_code& ec);
 
   /*!
    */
@@ -515,7 +539,7 @@ private:
 
   /*!
    */
-  static std::string public_key_ser(EVP_PKEY* pkey, jwt::string_view sign, std::error_code& ec);
+  static std::string public_key_ser(const evp_privkey& pkey, jwt::string_view sign, std::error_code& ec);
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
 
@@ -546,6 +570,9 @@ private:
 
 #endif
 };
+
+
+
 
 } // END namespace jwt
 

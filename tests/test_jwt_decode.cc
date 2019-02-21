@@ -42,7 +42,7 @@ TEST (DecodeTest, DecodeWrongAlgo)
   using namespace jwt::params;
 
   const char* enc_str =
-    "eyJhbGciOiJOT05FIiwidHlwIjoiSldUIn0.eyJhdWQiOiJyaWZ0LmlvIiwiZXhwIjoxNTEzODYzMzcxLCJzdWIiOiJub3RoaW5nIG11Y2gifQ.";
+    "eyJhbGciOiJOT05FIiwidHlwIjoiSldUIn0.eyJhdWQiOiJyaWZ0LmlvIiwiZXhwIjo0NTEzODYzMzcxLCJzdWIiOiJub3RoaW5nIG11Y2gifQ.";
 
   std::error_code ec;
   auto obj = jwt::decode(enc_str, algorithms({"hs256"}), ec, secret(""), verify(true));

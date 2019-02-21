@@ -132,7 +132,7 @@ TEST (RSAAlgo, NoSpecificAlgo)
   jwt::jwt_object obj{algorithm("RS512"), secret(key)};
   obj.add_claim("iss", "arun.muralidharan")
      .add_claim("aud", "all")
-     .add_claim("exp", 1513862372)
+     .add_claim("exp", 4513863371ULL)
      ;
 
   auto enc_str = obj.signature();

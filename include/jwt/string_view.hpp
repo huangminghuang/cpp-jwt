@@ -97,6 +97,13 @@ public: // 'tors
     len_ = 0;
   }
 
+  /// conversion operator
+  template <typename Allocator>
+  explicit operator std::basic_string<CharT, Traits, Allocator>() {
+    return std::basic_string<CharT, Traits, Allocator>(this->data(), this->length());
+  }
+
+
 public: // Exposed APIs
   /// Iterator Member Functions
 

@@ -29,6 +29,7 @@ SOFTWARE.
 #include <vector>
 #include <utility>
 #include <unordered_map>
+#include <functional>
 
 #include "jwt/algorithm.hpp"
 #include "jwt/detail/meta.hpp"
@@ -37,7 +38,6 @@ SOFTWARE.
 namespace jwt {
 
 using system_time_t = std::chrono::time_point<std::chrono::system_clock>;
-
 namespace params {
 
 
@@ -66,6 +66,16 @@ struct payload_param
   MappingConcept payload_;
 };
 
+template <typename F, typename... Args>
+struct is_invocable :
+    std::is_constructible<
+        std::function<void(Args ...)>,
+        std::reference_wrapper<typename std::remove_reference<F>::type>
+    >
+{
+};
+
+
 /**
  * Parameter for providing the secret key.
  * Stores only the view of the provided string
@@ -74,25 +84,26 @@ struct payload_param
  *
  * Modeled as ParameterConcept.
  */
+
+
+template <typename Key, typename Hasher = algo::UNKN>
 struct secret_param
 {
-  secret_param(string_view sv)
-    : secret_(sv)
-  {}
+  using hash = Hasher;
 
-  string_view get() { return secret_; }
-  string_view secret_;
-};
-
-template <typename T>
-struct secret_function_param
-{
-  T get() const { return fun_; }
+  Key get() const { return key_; }
   template <typename U>
-  std::string get(U&& u) const { return fun_(u);}
-  T fun_;
-};
+  Key get( U&& u,std::enable_if_t<!is_invocable<Key, U>::value && std::is_reference<Key>::value>* =0) const  { return key_; }
 
+  template <typename U>
+  Key get( U&& u,std::enable_if_t<!is_invocable<Key, U>::value && !std::is_reference<Key>::value>* =0) && { 
+    return std::move(key_); 
+  }
+
+  template <typename U>
+  auto get(U&& u,std::enable_if_t<is_invocable<Key, U>::value>* =0) const { return key_(u);}
+  Key key_;
+};
 /**
  * Parameter for providing the algorithm to use.
  * The parameter can accept either the string representation
@@ -265,6 +276,13 @@ struct nbf_param
   uint64_t duration_;
 };
 
+template <typename T>
+struct checker_param
+{
+  T get() const { return check_; }
+  T check_;
+};
+
 } // END namespace detail
 
 // Useful typedef
@@ -301,16 +319,16 @@ payload(MappingConcept&& mc)
 
 /**
  */
-inline detail::secret_param secret(const string_view sv)
+template <typename Key>
+inline detail::secret_param<Key> secret(Key&& sv)
 {
-  return { sv };
+  return { std::forward<Key>(sv) };
 }
 
-template <typename T>
-inline std::enable_if_t<!std::is_convertible<T, string_view>::value, detail::secret_function_param<T>>  
-secret(T&& fun)
+template <typename Hash, typename Key>
+inline detail::secret_param<Key, Hash> secret(Key&& sv)
 {
-  return detail::secret_function_param<T>{ fun };
+  return { std::forward<Key>(sv) };
 }
 
 /**
@@ -443,6 +461,13 @@ inline detail::nbf_param
 nbf(const uint64_t epoch)
 {
   return { epoch };
+}
+
+template <typename T>
+inline detail::checker_param<T>
+custom_check(T&& lambda )
+{
+  return detail::checker_param<T>{std::forward<T>(lambda)};
 }
 
 } // END namespace params

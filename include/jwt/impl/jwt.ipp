@@ -155,21 +155,59 @@ inline void jwt_payload::decode(const jwt::string_view enc_str)
   return;
 }
 
-inline std::string jwt_signature::encode(const jwt_header& header,
-                                  const jwt_payload& payload,
-                                  std::error_code& ec)
+//==================================================================
+namespace detail {
+
+verify_result_t verify(const jwt_object& obj, string_view head, string_view sign) 
+{
+  if (obj.header().algo() != algorithm::NONE) {
+    return {false, std::error_code{DecodeErrc::KeyNotPresent}};
+  }
+  return {true, std::error_code{AlgorithmErrc::NoneAlgorithmUsed}};
+}
+
+template<typename Key, typename Hasher, typename ...Rest>
+verify_result_t verify(const jwt_object& obj, string_view head, string_view sign, params::detail::secret_param<Key, Hasher>&& sparam, Rest...) ;
+template<typename T, typename ...Rest>
+verify_result_t verify(const jwt_object& obj, string_view head, string_view sign, params::detail::checker_param<T>&& checker, Rest... r) ;
+
+template<typename T, typename ...Rest>
+verify_result_t verify(const jwt_object& obj, string_view head, string_view sign, T&& t, Rest... r) 
+{
+  return verify(obj, head, sign, std::forward<Rest>(r)...);
+}
+
+template<typename Key, typename Hasher, typename ...Rest>
+verify_result_t verify(const jwt_object& obj, string_view head, string_view sign, params::detail::secret_param<Key, Hasher>&& s, Rest...) 
+{
+  using signer = typename Hasher::signer;
+  return signer{obj.header().algo()}.verify(std::move(s).get(obj), head, sign);
+}
+
+template<typename T, typename ...Rest>
+verify_result_t verify(const jwt_object& obj, string_view head, string_view sign, params::detail::checker_param<T>&& checker, Rest... r) 
+{
+  std::error_code ec = checker.check_(obj);
+  if (ec) return { false, ec };
+  return verify(obj, head, sign, std::forward<Rest>(r)...);
+}
+
+
+template <typename Key, typename Signer> 
+std::string encode(Key&& key,
+                   const Signer& signer,                 
+                   const jwt_object& obj,
+                   std::error_code& ec)
 {
   std::string jwt_msg;
   ec.clear();
   //TODO: Optimize allocations
 
-  sign_func_t sign_fn = get_sign_algorithm_impl(header);
-
-  std::string hdr_sign = header.base64_encode();
-  std::string pld_sign = payload.base64_encode();
+  std::string hdr_sign = obj.header().base64_encode();
+  std::string pld_sign = obj.payload().base64_encode();
   std::string data = hdr_sign + '.' + pld_sign;
 
-  auto res = sign_fn(key_, data);
+  auto res = signer.sign(std::forward<Key>(key), data);
 
   if (res.second && res.second != AlgorithmErrc::NoneAlgorithmUsed) {
     ec = res.second;
@@ -188,105 +226,11 @@ inline std::string jwt_signature::encode(const jwt_header& header,
   jwt_msg = data + '.' + b64hash;
 
   return jwt_msg;
+}  
+
 }
 
-inline verify_result_t jwt_signature::verify(const jwt_header& header,
-                           const jwt::string_view hdr_pld_sign,
-                           const jwt::string_view jwt_sign)
-{
-  verify_func_t verify_fn = get_verify_algorithm_impl(header);
-  return verify_fn(key_, hdr_pld_sign, jwt_sign);
-}
-
-
-inline sign_func_t
-jwt_signature::get_sign_algorithm_impl(const jwt_header& hdr) const noexcept
-{
-  sign_func_t ret = nullptr;
-
-  switch (hdr.algo()) {
-  case algorithm::HS256:
-    ret = HMACSign<algo::HS256>::sign;
-    break;
-  case algorithm::HS384:
-    ret = HMACSign<algo::HS384>::sign;
-    break;
-  case algorithm::HS512:
-    ret = HMACSign<algo::HS512>::sign;
-    break;
-  case algorithm::NONE:
-    ret = HMACSign<algo::NONE>::sign;
-    break;
-  case algorithm::RS256:
-    ret = PEMSign<algo::RS256>::sign;
-    break;
-  case algorithm::RS384:
-    ret = PEMSign<algo::RS384>::sign;
-    break;
-  case algorithm::RS512:
-    ret = PEMSign<algo::RS512>::sign;
-    break;
-  case algorithm::ES256:
-    ret = PEMSign<algo::ES256>::sign;
-    break;
-  case algorithm::ES384:
-    ret = PEMSign<algo::ES384>::sign;
-    break;
-  case algorithm::ES512:
-    ret = PEMSign<algo::ES512>::sign;
-    break;
-  default:
-    assert (0 && "Code not reached");
-  };
-
-  return ret;
-}
-
-
-
-inline verify_func_t
-jwt_signature::get_verify_algorithm_impl(const jwt_header& hdr) const noexcept
-{
-  verify_func_t ret = nullptr;
-
-  switch (hdr.algo()) {
-  case algorithm::HS256:
-    ret = HMACSign<algo::HS256>::verify;
-    break;
-  case algorithm::HS384:
-    ret = HMACSign<algo::HS384>::verify;
-    break;
-  case algorithm::HS512:
-    ret = HMACSign<algo::HS512>::verify;
-    break;
-  case algorithm::NONE:
-    ret = HMACSign<algo::NONE>::verify;
-    break;
-  case algorithm::RS256:
-    ret = PEMSign<algo::RS256>::verify;
-    break;
-  case algorithm::RS384:
-    ret = PEMSign<algo::RS384>::verify;
-    break;
-  case algorithm::RS512:
-    ret = PEMSign<algo::RS512>::verify;
-    break;
-  case algorithm::ES256:
-    ret = PEMSign<algo::ES256>::verify;
-    break;
-  case algorithm::ES384:
-    ret = PEMSign<algo::ES384>::verify;
-    break;
-  case algorithm::ES512:
-    ret = PEMSign<algo::ES512>::verify;
-    break;
-  default:
-    assert (0 && "Code not reached");
-  };
-
-  return ret;
-}
-
+//==================================================================
 
 //
 template <typename First, typename... Rest,
@@ -311,11 +255,14 @@ void jwt_object::set_parameters(
   set_parameters(std::forward<Rest>(rargs)...);
 }
 
-template <typename... Rest>
+template <typename Key, typename Hash, typename... Rest>
 void jwt_object::set_parameters(
-    params::detail::secret_param secret, Rest&&... rargs)
+    params::detail::secret_param<Key, Hash>&& secret, Rest&&... rargs)
 {
-  secret_.assign(secret.get().data(), secret.get().length());
+  secret_ = static_cast<std::string>(secret.get(*this));
+  if (Hash::alg != algorithm::UNKN) {
+    header_.algo(Hash::alg);
+  }
   set_parameters(std::forward<Rest>(rargs)...);
 }
 
@@ -361,50 +308,60 @@ inline jwt_object& jwt_object::remove_claim(const jwt::string_view name)
 
 inline std::string jwt_object::signature(std::error_code& ec) const
 {
-  ec.clear();
-
-  //key/secret should be set for any algorithm except NONE
-  if (header().algo() != jwt::algorithm::NONE) {
-    if (secret_.length() == 0) {
-      ec = AlgorithmErrc::KeyNotFoundErr;
-      return {};
-    }
-  }
-
-  jwt_signature jws{secret_};
-  return jws.encode(header_, payload_, ec);
+  return signature(params::secret(secret_), ec);
 }
 
 inline std::string jwt_object::signature() const
 {
+  return signature(params::secret(secret_));
+}
+
+template <typename Key> 
+inline std::string jwt_object::signature(params::detail::secret_param<Key, algo::UNKN>&& s, std::error_code& ec) const
+{
+  return detail::encode(std::move(s).get(*this), UNKNSign{header_.algo()}, *this, ec);
+}
+
+template <typename Key, typename Hasher> 
+inline std::enable_if_t<!std::is_same<Hasher, algo::UNKN>::value, std::string> 
+
+jwt_object::signature(params::detail::secret_param<Key, Hasher>&& s, std::error_code& ec)
+{
+  header_.algo(Hasher::alg);
+  using signer = typename Hasher::signer;
+  return detail::encode(std::move(s).get(*this), signer(), *this, ec);
+}
+
+template <typename Key> 
+inline std::string jwt_object::signature(params::detail::secret_param<Key, algo::UNKN>&& s) const
+{
   std::error_code ec;
-  std::string res = signature(ec);
+  std::string res = this->signature(std::forward<params::detail::secret_param<Key, algo::UNKN>>(s), ec);
   if (ec) {
     throw SigningError(ec.message());
   }
   return res;
 }
 
-template <typename Params, typename SequenceT>
+template <typename Key, typename Hasher> 
+inline std::enable_if_t<!std::is_same<Hasher, algo::UNKN>::value, std::string>
+jwt_object::signature(params::detail::secret_param<Key, Hasher>&& s)
+{
+  std::error_code ec;
+  std::string res = this->signature(std::forward<params::detail::secret_param<Key, Hasher>>(s), ec);
+  if (ec) {
+    throw SigningError(ec.message());
+  }
+  return res;
+}
+
+template <typename Params>
 std::error_code jwt_object::verify(
-    const Params& dparams,
-    const params::detail::algorithms_param<SequenceT>& algos) const
+    const Params& dparams) const
 {
   std::error_code ec{};
 
-  //Verify if the algorithm set in the header
-  //is any of the one expected by the client.
-  auto fitr = std::find_if(algos.get().begin(), 
-                           algos.get().end(),
-                           [this](const auto& elem) 
-                           {
-                             return jwt::str_to_alg(elem) == this->header().algo();
-                           });
 
-  if (fitr == algos.get().end()) {
-    ec = VerificationErrc::InvalidAlgorithm;
-    return ec;
-  }
 
   //Check for the expiry timings
   if (has_claim(registered_claims::expiration)) {
@@ -536,20 +493,9 @@ jwt_object::three_parts(const jwt::string_view enc_str)
   return result;
 }
 
-template <typename DecodeParams, typename... Rest>
-void jwt_object::set_decode_params(DecodeParams& dparams, params::detail::secret_param s, Rest&&... args)
-{
-  dparams.secret.assign(s.get().data(), s.get().length());
-  dparams.has_secret = true;
-  jwt_object::set_decode_params(dparams, std::forward<Rest>(args)...);
-}
-
-template <typename DecodeParams, typename T, typename... Rest>
-void jwt_object::set_decode_params(DecodeParams& dparams, params::detail::secret_function_param<T>&& s, Rest&&... args)
-{
-  dparams.secret = s.get(*dparams.payload_ptr);
-  dparams.has_secret = true;
-  jwt_object::set_decode_params(dparams, std::forward<Rest>(args)...);
+template <typename DecodeParams, typename Key, typename Hasher, typename... Rest>
+void jwt_object::set_decode_params(DecodeParams& dparams, params::detail::secret_param<Key, Hasher>&& v, Rest&&... args) {
+  return set_decode_params(dparams, std::forward<Rest>(args)...);
 }
 
 template <typename DecodeParams, typename... Rest>
@@ -604,6 +550,12 @@ void jwt_object::set_decode_params(DecodeParams& dparams, params::detail::valida
   jwt_object::set_decode_params(dparams, std::forward<Rest>(args)...);
 }
 
+template <typename DecodeParams, typename T, typename... Rest>
+void jwt_object::set_decode_params(DecodeParams& dparams, params::detail::checker_param<T>&&, Rest&&... args)
+{
+  jwt_object::set_decode_params(dparams, std::forward<Rest>(args)...);
+}
+
 template <typename DecodeParams>
 void jwt_object::set_decode_params(DecodeParams& dparams)
 {
@@ -614,23 +566,46 @@ void jwt_object::set_decode_params(DecodeParams& dparams)
 
 template <typename SequenceT, typename... Args>
 jwt_object decode(const jwt::string_view enc_str,
-                  const params::detail::algorithms_param<SequenceT>& algos,
+                  params::detail::algorithms_param<SequenceT>&& algos,
                   std::error_code& ec,
                   Args&&... args)
 {
+  if (algos.get().size() == 0) {
+    ec = DecodeErrc::EmptyAlgoList;
+    return jwt_object{};
+  }
+
+  auto check_algos = [&algos](const jwt_object& obj) -> std::error_code {
+    //Verify if the algorithm set in the header
+    //is any of the one expected by the client.
+    auto alg = obj.header().algo();
+    auto fitr = std::find_if(algos.get().begin(), 
+                            algos.get().end(),
+                            [alg](const auto& elem) 
+                            {
+                              return jwt::str_to_alg(elem) == alg;
+                            });
+
+    if (fitr == algos.get().end()) {
+      return std::error_code{VerificationErrc::InvalidAlgorithm};
+    }
+    return std::error_code{};
+  };
+
+  return decode(enc_str, ec, params::custom_check(check_algos), std::forward<Args>(args)...); 
+}
+
+template <typename... Args>
+jwt_object decode(const jwt::string_view enc_str,
+                  std::error_code& ec,
+                  Args&&... args)
+{
+
   ec.clear();
   jwt_object obj;
 
-  if (algos.get().size() == 0) {
-    ec = DecodeErrc::EmptyAlgoList;
-    return obj;
-  }
-
   struct decode_params
   {
-    /// key to decode the JWS
-    bool has_secret = false;
-    std::string secret;
 
     /// Verify parameter. Defaulted to true.
     bool verify = true;
@@ -658,7 +633,6 @@ jwt_object decode(const jwt::string_view enc_str,
 
     //Validate JTI
     bool validate_jti = false;
-    const jwt_payload* payload_ptr = 0;
   };
 
   decode_params dparams{};
@@ -704,43 +678,28 @@ jwt_object decode(const jwt::string_view enc_str,
     return obj;
   }
   obj.payload(std::move(payload));
-  dparams.payload_ptr = & obj.payload();
   jwt_object::set_decode_params(dparams, std::forward<Args>(args)...);
   if (dparams.verify) {
     try {
-      ec = obj.verify(dparams, algos);
+      ec = obj.verify(dparams);
     } catch (const json_ns::detail::type_error& e) {
       ec = VerificationErrc::TypeConversionError;
     }
 
     if (ec) return obj;
+    // Length of the encoded header and payload only.
+    // Addition of '1' to account for the '.' character.
+    auto l = parts[0].length() + 1 + parts[1].length();
 
-    //Verify the signature only if some algorithm was used
-    if (obj.header().algo() != algorithm::NONE)
-    {
-      if (!dparams.has_secret) {
-        ec = DecodeErrc::KeyNotPresent;
-        return obj;
-      }
-      jwt_signature jsign{dparams.secret};
- 
-      // Length of the encoded header and payload only.
-      // Addition of '1' to account for the '.' character.
-      auto l = parts[0].length() + 1 + parts[1].length();
-
-      //MemoryAllocationError is not caught
-      verify_result_t res = jsign.verify(obj.header(), enc_str.substr(0, l), parts[2]);
-      if (res.second) {
-        ec = res.second;
-        return obj;
-      }
-
-      if (!res.first) {
-        ec = VerificationErrc::InvalidSignature;
-        return obj;
-      }
-    } else {
-      ec = AlgorithmErrc::NoneAlgorithmUsed;
+    //MemoryAllocationError is not caught
+    verify_result_t res = detail::verify(obj, enc_str.substr(0, l), parts[2], std::forward<Args>(args)...);
+    if (res.second) {
+      ec = res.second;
+      return obj;
+    }
+    if (!res.first) {
+      ec = VerificationErrc::InvalidSignature;
+      return obj;
     }
   }
 
@@ -748,15 +707,14 @@ jwt_object decode(const jwt::string_view enc_str,
 }
 
 
-
 template <typename SequenceT, typename... Args>
 jwt_object decode(const jwt::string_view enc_str,
-                  const params::detail::algorithms_param<SequenceT>& algos,
+                  params::detail::algorithms_param<SequenceT>&& algos,
                   Args&&... args)
 {
   std::error_code ec{};
   auto jwt_obj = decode(enc_str,
-                        algos,
+                        std::forward<params::detail::algorithms_param<SequenceT>>(algos),
                         ec,
                         std::forward<Args>(args)...);
 
@@ -767,6 +725,21 @@ jwt_object decode(const jwt::string_view enc_str,
   return jwt_obj;
 }
 
+template <typename... Args>
+jwt_object decode(const jwt::string_view enc_str,
+                  Args&&... args)
+{
+  std::error_code ec{};
+  auto jwt_obj = decode(enc_str,
+                        ec,
+                        std::forward<Args>(args)...);
+
+  if (ec) {
+    jwt_throw_exception(ec);
+  }
+
+  return jwt_obj;
+}
 
 void jwt_throw_exception(const std::error_code& ec)
 {

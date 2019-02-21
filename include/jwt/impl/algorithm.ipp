@@ -29,7 +29,7 @@ template <typename Hasher>
 verify_result_t HMACSign<Hasher>::verify(
     const jwt::string_view key,
     const jwt::string_view head,
-    const jwt::string_view jwt_sign)
+    const jwt::string_view jwt_sign) const
 {
   std::error_code ec{};
 
@@ -86,35 +86,141 @@ verify_result_t HMACSign<Hasher>::verify(
 }
 
 
+sign_result_t UNKNSign::sign(jwt::string_view key, jwt::string_view data) const
+{
+  switch (alg_) {
+  case algorithm::HS256:
+    return HMACSign<algo::HS256>().sign(key, data);
+  case algorithm::HS384:
+    return  HMACSign<algo::HS384>().sign(key, data);
+  case algorithm::HS512:
+    return  HMACSign<algo::HS512>().sign(key, data);
+  case algorithm::NONE:
+    return HMACSign<algo::NONE>().sign(key, data);
+  case algorithm::RS256:
+    return PEMSign<algo::RS256>().sign(key, data);
+  case algorithm::RS384:
+    return PEMSign<algo::RS384>().sign(key, data);
+  case algorithm::RS512:
+    return PEMSign<algo::RS512>().sign(key, data);
+  case algorithm::ES256:
+    return PEMSign<algo::ES256>().sign(key, data);
+  case algorithm::ES384:
+    return PEMSign<algo::ES384>().sign(key, data);
+  case algorithm::ES512:
+    return PEMSign<algo::ES512>().sign(key, data);
+  default:
+    assert (0 && "Code not reached");
+  };
+}
+
+sign_result_t UNKNSign::sign(const jwt::evp_privkey& key, jwt::string_view data) const
+{
+  switch (alg_) {
+  case algorithm::HS256:
+  case algorithm::HS384:
+  case algorithm::HS512:
+  case algorithm::NONE:
+    return { std::string{}, std::error_code{AlgorithmErrc::SigningErr} };
+  case algorithm::RS256:
+    return PEMSign<algo::RS256>().sign(key, data);
+  case algorithm::RS384:
+    return PEMSign<algo::RS384>().sign(key, data);
+  case algorithm::RS512:
+    return PEMSign<algo::RS512>().sign(key, data);
+  case algorithm::ES256:
+    return PEMSign<algo::ES256>().sign(key, data);
+  case algorithm::ES384:
+    return PEMSign<algo::ES384>().sign(key, data);
+  case algorithm::ES512:
+    return PEMSign<algo::ES512>().sign(key, data);
+  default:
+    assert (0 && "Code not reached");
+  };
+}
+
+verify_result_t
+UNKNSign::verify(jwt::string_view key, jwt::string_view head, jwt::string_view sign) const
+{
+  switch (alg_) {
+  case algorithm::HS256:
+    return HMACSign<algo::HS256>().verify(key, head, sign);
+  case algorithm::HS384:
+    return HMACSign<algo::HS384>().verify(key, head, sign);
+  case algorithm::HS512:
+    return HMACSign<algo::HS512>().verify(key, head, sign);
+  case algorithm::NONE:
+    return HMACSign<algo::NONE>().verify(key, head, sign);
+  case algorithm::RS256:
+    return PEMSign<algo::RS256>().verify(key, head, sign);
+  case algorithm::RS384:
+    return PEMSign<algo::RS384>().verify(key, head, sign);
+  case algorithm::RS512:
+    return  PEMSign<algo::RS512>().verify(key, head, sign);
+  case algorithm::ES256:
+    return  PEMSign<algo::ES256>().verify(key, head, sign);
+  case algorithm::ES384:
+    return PEMSign<algo::ES384>().verify(key, head, sign);
+  case algorithm::ES512:
+    return PEMSign<algo::ES512>().verify(key, head, sign);
+  default:
+    assert (0 && "Code not reached");
+  };
+  return {false, std::error_code{}};
+}
+
+verify_result_t
+UNKNSign::verify(const evp_pubkey& key, jwt::string_view head, jwt::string_view sign) const
+{
+  switch (alg_) {
+  case algorithm::HS256:
+  case algorithm::HS384:
+  case algorithm::HS512:
+  case algorithm::NONE:
+    return { false, std::error_code{AlgorithmErrc::VerificationErr} };
+  case algorithm::RS256:
+    return PEMSign<algo::RS256>().verify(key, head, sign);
+  case algorithm::RS384:
+    return PEMSign<algo::RS384>().verify(key, head, sign);
+  case algorithm::RS512:
+    return  PEMSign<algo::RS512>().verify(key, head, sign);
+  case algorithm::ES256:
+    return  PEMSign<algo::ES256>().verify(key, head, sign);
+  case algorithm::ES384:
+    return PEMSign<algo::ES384>().verify(key, head, sign);
+  case algorithm::ES512:
+    return PEMSign<algo::ES512>().verify(key, head, sign);
+  default:
+    assert (0 && "Code not reached");
+  };
+  return {false, std::error_code{}};
+}
+
+
 template <typename Hasher>
 verify_result_t PEMSign<Hasher>::verify(
     const jwt::string_view key,
     const jwt::string_view head,
-    const jwt::string_view jwt_sign)
+    const jwt::string_view jwt_sign) const
+{
+  return verify(evp_pubkey(pem_str{key}), head, jwt_sign);
+}
+
+template <typename Hasher>
+verify_result_t PEMSign<Hasher>::verify(
+    const evp_pubkey& pkey,
+    const jwt::string_view head,
+    const jwt::string_view jwt_sign) const
 {
   std::error_code ec{};
   std::string dec_sig = base64_uri_decode(jwt_sign.data(), jwt_sign.length());
 
-  BIO_uptr bufkey{
-      BIO_new_mem_buf((void*)key.data(), key.length()),
-      bio_deletor};
-
-  if (!bufkey) {
-    throw MemoryAllocationException("BIO_new_mem_buf failed");
-  }
-
-  EC_PKEY_uptr pkey{
-    PEM_read_bio_PUBKEY(bufkey.get(), nullptr, nullptr, nullptr),
-    ev_pkey_deletor};
-
-  if (!pkey) {
+  if (!pkey.get()) {
     ec = AlgorithmErrc::VerificationErr;
     return { false, ec };
   }
 
-  int pkey_type = EVP_PKEY_id(pkey.get());
-
-  if (pkey_type != Hasher::type) {
+  if (pkey.id() != Hasher::type) {
     ec = AlgorithmErrc::VerificationErr;
     return { false, ec };
   }
@@ -126,14 +232,8 @@ verify_result_t PEMSign<Hasher>::verify(
       throw MemoryAllocationException("ECDSA_SIG_new failed");
     }
 
-    //Get the actual ec_key
-    EC_KEY_uptr ec_key{EVP_PKEY_get1_EC_KEY(pkey.get()), ec_key_deletor};
-    if (!ec_key) {
-      throw MemoryAllocationException("EVP_PKEY_get1_EC_KEY failed");
-    }
-
     unsigned int degree = EC_GROUP_get_degree(
-        EC_KEY_get0_group(ec_key.get()));
+        EC_KEY_get0_group(pkey.ec_key()));
     
     unsigned int bn_len = (degree + 7) / 8;
 
@@ -190,38 +290,6 @@ verify_result_t PEMSign<Hasher>::verify(
 }
 
 template <typename Hasher>
-EVP_PKEY* PEMSign<Hasher>::load_key(
-    const jwt::string_view key,
-    std::error_code& ec)
-{
-  ec.clear();
-
-  BIO_uptr bio_ptr{
-      BIO_new_mem_buf((void*)key.data(), key.length()), 
-      bio_deletor};
-
-  if (!bio_ptr) {
-    throw MemoryAllocationException("BIO_new_mem_buf failed");
-  }
-
-  EVP_PKEY* pkey = PEM_read_bio_PrivateKey(
-      bio_ptr.get(), nullptr, nullptr, nullptr);
-
-  if (!pkey) {
-    ec = AlgorithmErrc::SigningErr;
-    return nullptr;
-  }
-
-  auto pkey_type = EVP_PKEY_id(pkey);
-  if (pkey_type != Hasher::type) {
-    ec = AlgorithmErrc::SigningErr;
-    return nullptr;
-  }
-
-  return pkey;
-}
-
-template <typename Hasher>
 std::string PEMSign<Hasher>::evp_digest(
     EVP_PKEY* pkey, 
     const jwt::string_view data, 
@@ -269,7 +337,7 @@ std::string PEMSign<Hasher>::evp_digest(
 
 template <typename Hasher>
 std::string PEMSign<Hasher>::public_key_ser(
-    EVP_PKEY* pkey, 
+    const evp_privkey& pkey, 
     jwt::string_view sign, 
     std::error_code& ec)
 {
@@ -278,16 +346,14 @@ std::string PEMSign<Hasher>::public_key_ser(
   std::string new_sign;
   ec.clear();
 
-  EC_KEY_uptr ec_key{EVP_PKEY_get1_EC_KEY(pkey), ec_key_deletor};
+  auto ec_key = pkey.ec_key();
 
   if (!ec_key) {
     ec = AlgorithmErrc::SigningErr;
     return {};
   }
 
-  uint32_t degree = EC_GROUP_get_degree(EC_KEY_get0_group(ec_key.get()));
-
-  ec_key.reset(nullptr);
+  uint32_t degree = EC_GROUP_get_degree(EC_KEY_get0_group(ec_key));
 
   auto char_ptr = &sign[0];
 
