@@ -1,0 +1,119 @@
+
+# CppRestSdk Azure Pipelines Configuration
+
+jobs:
+  - job: Windows_VS2017_x64
+    pool:
+      vmImage: 'vs2017-win2016'
+    steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '3.6'
+        architecture: 'x64'
+    - script: |
+        python -m pip install --upgrade pip setuptools wheel
+        pip install conan
+        conan remote add bincrafters https://api.bintray.com/conan/bincrafters/public-conan
+      displayName: 'Install dependencies'
+    - script: mkdir build.common
+      displayName: Make Build Directory
+    - task: CMake@1
+      inputs:
+        workingDirectory: 'build.common'
+        cmakeArgs: '-A x64 ..'
+    - task: MSBuild@1
+      inputs:
+        solution: 'build.common/ALL_BUILD.vcxproj'
+        maximumCpuCount: true
+        platform: 'x64'
+    - script: |
+        cd build.common
+        ctest --output-on-failure -C Debug
+      displayName: 'Run tests, debug'
+    - task: MSBuild@1
+      inputs:
+        solution: 'build.common/ALL_BUILD.vcxproj'
+        maximumCpuCount: true
+        platform: 'x64'
+        configuration: 'Release'
+    - script: |
+        cd build.common
+        ctest --output-on-failure -C Release
+      displayName: 'Run tests, release'
+  - job: Ubuntu_1604
+    pool:
+      vmImage: 'Ubuntu 16.04'
+    steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '3.6'
+        architecture: 'x64'
+    - script: |
+        python -m pip install --upgrade pip setuptools wheel
+        pip install conan ninja
+      displayName: 'Install dependencies'
+    - script: |
+        mkdir build.debug
+        mkdir build.release
+      displayName: Make Build Directories
+    - task: CMake@1
+      inputs:
+        workingDirectory: 'build.debug'
+        cmakeArgs: '-G Ninja -DCMAKE_BUILD_TYPE=Debug ..'
+    - task: CMake@1
+      inputs:
+        workingDirectory: 'build.release'
+        cmakeArgs: '-G Ninja -DCMAKE_BUILD_TYPE=Release ..'
+    - script: |
+        cd build.debug
+        ninja
+      displayName: 'Run ninja, debug'
+    - script: |
+        cd build.debug
+        ctest --output-on-failure
+      displayName: 'Run tests, debug'
+    - script: |
+        cd build.release
+        ninja
+      displayName: 'Run ninja, release'
+    - script: |
+        cd build.release
+        ctest --output-on-failure
+      displayName: 'Run tests, release'
+
+  - job: MacOS
+    pool:
+      vmImage: 'macOS-10.13'
+    steps:
+    - script: |
+        brew install ninja openssl
+        brew install --HEAD https://gist.githubusercontent.com/Kronuz/96ac10fbd8472eb1e7566d740c4034f8/raw/gtest.rb
+      displayName: brew install dependencies
+    - script: |
+        mkdir build.debug
+        mkdir build.release
+      displayName: Make Build Directories
+    - task: CMake@1
+      inputs:
+        workingDirectory: 'build.debug'
+        cmakeArgs: '-G Ninja -DCMAKE_BUILD_TYPE=Debug -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl ..'
+    - task: CMake@1
+      inputs:
+        workingDirectory: 'build.release'
+        cmakeArgs: '-G Ninja -DCMAKE_BUILD_TYPE=Release -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl ..'
+    - script: |
+        cd build.debug
+        ninja
+      displayName: 'Run ninja debug'
+    - script: |
+        cd build.debug
+        ctest --output-on-failure
+      displayName: 'Run Tests debug'
+    - script: |
+        cd build.release
+        ninja
+      displayName: 'Run ninja, release'
+    - script: |
+        cd build.release
+        ctest --output-on-failure
+      displayName: 'Run tests, release'

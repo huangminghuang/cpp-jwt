@@ -2,25 +2,36 @@
 # refer to the root source directory of the project as ${HELLO_SOURCE_DIR} and
 # to the root binary directory of the project as ${HELLO_BINARY_DIR}.
 
-cmake_minimum_required (VERSION 2.8.11)
+cmake_minimum_required (VERSION 3.5.0)
 project (cpp-jwt)
 
-#SET (CMAKE_CXX_COMPILER /usr/local/bin/g++)
-SET( CMAKE_CXX_FLAGS  "-std=c++14 -Wall" )
+set(CMAKE_CXX_STANDARD 14)
+if (NOT MSVC)
+  set( CMAKE_CXX_FLAGS  "-Wall" )
+endif(NOT MSVC)
 
-if (MSVC)
-  add_compile_options("/EHsc") # enable excpetion handling
-endif(MSVC)
+find_program(CONAN_EXECUTABLE NAMES conan)
+if (CONAN_EXECUTABLE)
 
-include_directories (include)
+  if(NOT EXISTS "${CMAKE_BINARY_DIR}/conan.cmake")
+    message(STATUS "Downloading conan.cmake from https://github.com/conan-io/cmake-conan")
+    file(DOWNLOAD "https://github.com/conan-io/cmake-conan/raw/v0.13/conan.cmake"
+                  "${CMAKE_BINARY_DIR}/conan.cmake")
+  endif()
 
-find_package(OpenSSL REQUIRED)
-include_directories(${OPENSSL_INCLUDE_DIR})
+  include(${CMAKE_BINARY_DIR}/conan.cmake)
 
-find_package(GTest REQUIRED)
-include_directories(${GTEST_INCLUDE_DIRS})
+  conan_cmake_run(CONANFILE conanfile.txt
+              BASIC_SETUP CMAKE_TARGETS NO_OUTPUT_DIRS
+              BUILD missing)
+  set(CPPJWT_TEST_DEPS ${CONAN_TARGETS})             
+else()
+  find_package(OpenSSL REQUIRED)
+  find_package(GTest REQUIRED)
+  set(CPPJWT_TEST_DEPS OpenSSL::SSL OpenSSL::Crypto GTest::GTest GTest::Main)
+endif()
 
-set(CPPJWT_TEST_DEPS ${OPENSSL_LIBRARIES} ${GTEST_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${CMAKE_DL_LIBS})
+include_directories(${CMAKE_SOURCE_DIR}/include)
 
 enable_testing()
 
