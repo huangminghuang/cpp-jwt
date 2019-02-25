@@ -8,6 +8,10 @@ project (cpp-jwt)
 #SET (CMAKE_CXX_COMPILER /usr/local/bin/g++)
 SET( CMAKE_CXX_FLAGS  "-std=c++14 -Wall" )
 
+if (MSVC)
+  add_compile_options("/EHsc") # enable excpetion handling
+endif(MSVC)
+
 include_directories (include)
 
 find_package(OpenSSL REQUIRED)
@@ -15,6 +19,8 @@ include_directories(${OPENSSL_INCLUDE_DIR})
 
 find_package(GTest REQUIRED)
 include_directories(${GTEST_INCLUDE_DIRS})
+
+set(CPPJWT_TEST_DEPS ${OPENSSL_LIBRARIES} ${GTEST_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${CMAKE_DL_LIBS})
 
 enable_testing()
 
