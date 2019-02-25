@@ -78,10 +78,10 @@ struct is_invocable :
 
 /**
  * Parameter for providing the secret key.
- * Stores only the view of the provided string
- * as string_view. Later the implementation may or
- * may-not copy it.
- *
+ * It may store a simple an object of type string/string_view or evp_key 
+ * containing the secret key or a lambda which takes a jwt_object as parameter
+ * to return the secret key based on the content of the jwt_object.
+
  * Modeled as ParameterConcept.
  */
 

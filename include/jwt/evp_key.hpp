@@ -8,6 +8,7 @@
 
 
 #if  OPENSSL_VERSION_NUMBER < 0x10100000L
+// provide OpenSSL 1.1.0+ APIs for OpenSSL 1.0.2. 
 inline void EVP_PKEY_up_ref(EVP_PKEY* pkey) 
 {
   CRYPTO_add(&pkey->references, 1, CRYPTO_LOCK_EVP_PKEY);
@@ -23,13 +24,8 @@ namespace jwt {
 
 /**
  */
-inline void bio_deletor(BIO* ptr)
-{
-  if (ptr) BIO_free_all(ptr);
-}
-
-using bio_deletor_t = decltype(&bio_deletor);
-using BIO_uptr = std::unique_ptr<BIO, bio_deletor_t>;
+auto bio_deletor = [](BIO* ptr){ if (ptr) BIO_free_all(ptr);};
+using BIO_uptr = std::unique_ptr<BIO, decltype(bio_deletor)>;
 
 
 struct pem_str 
@@ -62,7 +58,6 @@ private:
 };
 
 
-
 struct pem_pubkey_tag 
 {
   static EVP_PKEY* read_key(BIO *bp, EVP_PKEY **x,pem_password_cb *cb, void *u) { return PEM_read_bio_PUBKEY(bp, x, cb, u); }
@@ -74,6 +69,10 @@ struct pem_privatekey_tag
   static EVP_PKEY* read_key(BIO *bp, EVP_PKEY **x,pem_password_cb *cb, void *u) { return PEM_read_bio_PrivateKey(bp, x, cb, u); }
   static EVP_PKEY* read_key(FILE *fp, EVP_PKEY **x,pem_password_cb *cb, void *u) { return PEM_read_PrivateKey(fp, x, cb, u); }
 };
+
+/**
+ * A Wrapper class for OpenSSL EVP_PKEY*. It supports the reference counting mechanism used by OpenSSL.   
+ */
 
 template <typename KeyTag>
 class evp_key 
