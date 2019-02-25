@@ -31,6 +31,7 @@
 // error C3431: 'algorithm': a scoped enumeration cannot be redeclared as an unscoped enumeration
 #ifdef _MSC_VER
 #define SCOPED_ENUM enum class
+#define __builtin_unreachable() __assume(0)
 #else
 #define SCOPED_ENUM enum
 #endif
