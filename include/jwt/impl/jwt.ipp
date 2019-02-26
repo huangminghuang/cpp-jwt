@@ -67,9 +67,9 @@ inline void jwt_header::decode(const jwt::string_view enc_str, std::error_code& 
   ec.clear();
   std::string json_str = base64_decode(enc_str);
 
-  try {
-    payload_ = json_t::parse(std::move(json_str));
-  } catch(const std::exception& e) {
+  
+  payload_ = json_t::parse(std::move(json_str), nullptr, false);
+  if (payload_.is_discarded()) {
     ec = DecodeErrc::JsonParseError;
     return;
   }
@@ -127,9 +127,8 @@ inline void jwt_payload::decode(const jwt::string_view enc_str, std::error_code&
 {
   ec.clear();
   std::string json_str = base64_decode(enc_str);
-  try {
-    payload_ = json_t::parse(std::move(json_str));
-  } catch(const std::exception& e) {
+  payload_ = json_t::parse(std::move(json_str), nullptr, false);
+  if (payload_.is_discarded()) {
     ec = DecodeErrc::JsonParseError;
     return;
   }
