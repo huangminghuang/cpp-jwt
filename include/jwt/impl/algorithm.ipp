@@ -112,6 +112,7 @@ sign_result_t UNKNSign::sign(jwt::string_view key, jwt::string_view data) const
   default:
     assert (0 && "Code not reached");
   };
+  __builtin_unreachable();
 }
 
 sign_result_t UNKNSign::sign(const jwt::evp_privkey& key, jwt::string_view data) const
@@ -137,6 +138,7 @@ sign_result_t UNKNSign::sign(const jwt::evp_privkey& key, jwt::string_view data)
   default:
     assert (0 && "Code not reached");
   };
+  __builtin_unreachable();
 }
 
 verify_result_t
@@ -164,6 +166,7 @@ UNKNSign::verify(jwt::string_view key, jwt::string_view head, jwt::string_view s
   case algorithm::ES512:
     return PEMSign<algo::ES512>().verify(key, head, sign);
   default:
+    __builtin_unreachable();
     assert (0 && "Code not reached");
   };
   return {false, std::error_code{}};
@@ -191,6 +194,7 @@ UNKNSign::verify(const evp_pubkey& key, jwt::string_view head, jwt::string_view 
   case algorithm::ES512:
     return PEMSign<algo::ES512>().verify(key, head, sign);
   default:
+    __builtin_unreachable();
     assert (0 && "Code not reached");
   };
   return {false, std::error_code{}};
