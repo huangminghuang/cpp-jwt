@@ -6,9 +6,6 @@ cmake_minimum_required (VERSION 3.5.0)
 project (cpp-jwt)
 
 set(CMAKE_CXX_STANDARD 14)
-if (NOT MSVC)
-  set( CMAKE_CXX_FLAGS  "-Wall" )
-endif(NOT MSVC)
 
 find_program(CONAN_EXECUTABLE NAMES conan)
 if (CONAN_EXECUTABLE)
@@ -31,7 +28,20 @@ else()
   set(CPPJWT_TEST_DEPS OpenSSL::SSL OpenSSL::Crypto GTest::GTest GTest::Main)
 endif()
 
-include_directories(${CMAKE_SOURCE_DIR}/include)
+function(cpp_jwt_target name)
+  add_executable(${name} ${ARGV})
+  target_include_directories(${name} PUBLIC ${CMAKE_SOURCE_DIR}/include)
+  target_link_libraries(${name} ${CPPJWT_TEST_DEPS})
+  add_test(NAME ${name} COMMAND ./${name} WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+
+  if (MSVC)
+    target_compile_options(${name} PRIVATE "/W4")
+    set_target_properties(${name} PROPERTIES LINK_FLAGS "/ignore:4099")
+  else(MSVC)
+    target_compile_options(${name} PRIVATE "-Wall")
+  endif(MSVC)
+endfunction()
+
 
 enable_testing()
 
@@ -39,5 +49,4 @@ enable_testing()
 # cause another cmake executable to run. The same process will walk through
 # the project's entire directory structure.
 add_subdirectory (tests)
-
 add_subdirectory (examples)
