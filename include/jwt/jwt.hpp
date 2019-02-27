@@ -30,6 +30,7 @@ SOFTWARE.
 #include <ostream>
 #include <cassert>
 #include <cstring>
+#include <cstdlib>
 
 #include "jwt/base64.hpp"
 #include "jwt/config.hpp"
@@ -76,7 +77,10 @@ inline enum type str_to_type(const jwt::string_view typ) noexcept
  * Converts an instance of type `enum class type`
  * to its string equivalent.
  */
-inline jwt::string_view type_to_str(SCOPED_ENUM type typ)
+#if defined(__clang__) || !defined(__GNUC__) || __GNUC__ > 5
+constexpr 
+#endif  
+jwt::string_view type_to_str(SCOPED_ENUM type typ)
 {
   switch (typ) {
     case type::JWT: return "JWT";
@@ -113,7 +117,10 @@ enum class registered_claims
  * Converts an instance of type `enum class registered_claims`
  * to its string equivalent representation.
  */
-inline jwt::string_view reg_claims_to_str(SCOPED_ENUM registered_claims claim) noexcept
+#if defined(__clang__) || !defined(__GNUC__) || __GNUC__ > 5
+constexpr 
+#endif 
+jwt::string_view reg_claims_to_str(SCOPED_ENUM registered_claims claim) noexcept
 {
   switch (claim) {
     case registered_claims::expiration: return "exp";
@@ -126,7 +133,6 @@ inline jwt::string_view reg_claims_to_str(SCOPED_ENUM registered_claims claim) n
     default:                            assert (0 && "Not a registered claim");
   };
   return "";
-  assert (0 && "Code not reached");
 }
 
 /**

@@ -59,17 +59,17 @@ public: // Member Types
 
 public: // 'tors
   /// The default constructor;
-  basic_string_view() = default;
+  constexpr basic_string_view() = default;
 
   /// Construct from string literal
-  basic_string_view(const CharT* str) noexcept
+  constexpr basic_string_view(const CharT* str) noexcept
     : data_(str)
     , len_(str ? traits_type::length(str) : 0)
   {
   }
 
   /// Construct from CharT pointer and provided length
-  basic_string_view(const CharT* p, size_type len) noexcept
+  constexpr basic_string_view(const CharT* p, size_type len) noexcept
     : data_(p)
     , len_(len)
   {
@@ -85,17 +85,12 @@ public: // 'tors
   }
 
   /// Copy constructor
-  basic_string_view(const basic_string_view&) = default;
+  constexpr basic_string_view(const basic_string_view&) = default;
 
   /// Assignment operator
-  basic_string_view& operator=(const basic_string_view&) = default;
+  constexpr basic_string_view& operator=(const basic_string_view&) = default;
 
   /// Destructor
-  ~basic_string_view()
-  {
-    data_ = nullptr;
-    len_ = 0;
-  }
 
   /// conversion operator
   template <typename Allocator>
@@ -107,33 +102,33 @@ public: // 'tors
 public: // Exposed APIs
   /// Iterator Member Functions
 
-  iterator begin() const noexcept { return data_;        }
-  iterator end()   const noexcept { return data_ + len_; }
+  constexpr iterator begin() const noexcept { return data_;        }
+  constexpr iterator end()   const noexcept { return data_ + len_; }
 
-  iterator rbegin() const noexcept { return reverse_iterator(end());   }
-  iterator rend()   const noexcept { return reverse_iterator(begin()); }
+  constexpr iterator rbegin() const noexcept { return reverse_iterator(end());   }
+  constexpr iterator rend()   const noexcept { return reverse_iterator(begin()); }
 
-  const_iterator cbegin() const noexcept { return begin(); }
-  const_iterator cend()   const noexcept { return end();   }
+  constexpr const_iterator cbegin() const noexcept { return begin(); }
+  constexpr const_iterator cend()   const noexcept { return end();   }
 
-  const_iterator crbegin() const noexcept { return rbegin(); }
-  const_iterator crend()   const noexcept { return rend();   }
+  constexpr const_iterator crbegin() const noexcept { return rbegin(); }
+  constexpr const_iterator crend()   const noexcept { return rend();   }
 
   /// Capacity Member Functions
 
-  size_type length() const noexcept { return len_; }
-  size_type size()   const noexcept { return len_; }
+  constexpr size_type length() const noexcept { return len_; }
+  constexpr size_type size()   const noexcept { return len_; }
 
-  size_type max_size() const noexcept
+  constexpr size_type max_size() const noexcept
   {
     return (npos - sizeof(size_type) - sizeof(void*))
       / sizeof(value_type) / 4;
   }
 
-  bool empty() const noexcept { return len_ == 0; }
+  constexpr bool empty() const noexcept { return len_ == 0; }
 
   /// Element Access Member Functions
-  const_reference operator[](size_type idx) const noexcept
+  constexpr const_reference operator[](size_type idx) const noexcept
   {
     return data_[idx];
   }
@@ -141,17 +136,17 @@ public: // Exposed APIs
   // NOTE: 'at' not supported
   //CharT at(size_type idx) const;
 
-  const_reference front() const noexcept
+  constexpr const_reference front() const noexcept
   {
     return data_[0];
   }
 
-  const_reference back() const noexcept
+  constexpr const_reference back() const noexcept
   {
     return data_[len_ - 1];
   }
 
-  const_pointer data() const noexcept
+  constexpr const_pointer data() const noexcept
   {
     return data_;
   }
@@ -179,7 +174,7 @@ public: // Exposed APIs
   /// String Operation Member Functions
 
   template <typename Allocator>
-  explicit operator std::basic_string<CharT, Traits, Allocator>() const
+  constexpr explicit operator std::basic_string<CharT, Traits, Allocator>() const
   {
     return {data_, len_};
   }
@@ -205,7 +200,7 @@ public: // Exposed APIs
   }
 
   // NOTE: Does not throw
-  basic_string_view substr(size_type pos, size_type n = npos) const noexcept
+  constexpr basic_string_view substr(size_type pos, size_type n = npos) const noexcept
   {
     assert (pos < len_ && "Start position should be less than length of the view");
     assert (n == npos ? 1 : (n - pos) < len_ && 
@@ -217,7 +212,7 @@ public: // Exposed APIs
   }
 
   /// Comparison Member Functions
-  int compare(const basic_string_view& other) const noexcept
+  constexpr int compare(const basic_string_view& other) const noexcept
   {
     int ret = traits_type::compare(data_, other.data_, std::min(len_, other.len_));
     if (ret == 0) {
@@ -226,113 +221,113 @@ public: // Exposed APIs
     return ret;
   }
 
-  int compare(size_type pos, size_type n, basic_string_view other) const noexcept
+  constexpr int compare(size_type pos, size_type n, basic_string_view other) const noexcept
   {
     return substr(pos, n).compare(other);
   }
 
-  int compare(const CharT* str) const noexcept
+  constexpr int compare(const CharT* str) const noexcept
   {
     return compare(basic_string_view{str});
   }
 
-  int compare(size_type pos, size_type n, const CharT* str) const noexcept
+  constexpr int compare(size_type pos, size_type n, const CharT* str) const noexcept
   {
     return compare(pos, n, basic_string_view{str});
   }
 
-  int compare(size_type pos, size_type n1, const CharT* str, size_type n2) const noexcept
+  constexpr int compare(size_type pos, size_type n1, const CharT* str, size_type n2) const noexcept
   {
     return compare(pos, n1, basic_string_view{str, n2});
   }
 
   /// Find operations
-  size_type find(const CharT* str, size_type pos, size_type n) const noexcept;
+  constexpr size_type find(const CharT* str, size_type pos, size_type n) const noexcept;
 
-  size_type find(const CharT ch, size_type pos) const noexcept;
+  constexpr size_type find(const CharT ch, size_type pos) const noexcept;
 
-  size_type find(basic_string_view sv, size_type pos = 0) const noexcept
+  constexpr size_type find(basic_string_view sv, size_type pos = 0) const noexcept
   {
     return find(sv.data(), pos, sv.length());
   }
 
-  size_type find(const CharT* str, size_type pos = 0) const noexcept
+  constexpr size_type find(const CharT* str, size_type pos = 0) const noexcept
   {
     return find(str, pos, traits_type::length(str));
   }
 
-  size_type rfind(const CharT* str, size_type pos, size_type n) const noexcept;
+  constexpr size_type rfind(const CharT* str, size_type pos, size_type n) const noexcept;
 
-  size_type rfind(const CharT ch, size_type pos) const noexcept;
+  constexpr size_type rfind(const CharT ch, size_type pos) const noexcept;
 
-  size_type rfind(basic_string_view sv, size_type pos = 0) const noexcept
+  constexpr size_type rfind(basic_string_view sv, size_type pos = 0) const noexcept
   {
     return rfind(sv.data(), pos, sv.length());
   }
 
-  size_type rfind(const CharT* str, size_type pos = 0) const noexcept
+  constexpr size_type rfind(const CharT* str, size_type pos = 0) const noexcept
   {
     return rfind(str, pos, traits_type::length(str));
   }
 
-  size_type find_first_of(const CharT* str, size_type pos, size_type count) const noexcept;
+  constexpr size_type find_first_of(const CharT* str, size_type pos, size_type count) const noexcept;
 
-  size_type find_first_of(basic_string_view str, size_type pos = 0) const noexcept
+  constexpr size_type find_first_of(basic_string_view str, size_type pos = 0) const noexcept
   {
     return find_first_of(str.data(), pos, str.length());
   }
 
-  size_type find_first_of(CharT ch, size_type pos = 0) const noexcept
+  constexpr size_type find_first_of(CharT ch, size_type pos = 0) const noexcept
   {
     return find(ch, pos);
   }
 
-  size_type find_first_of(const CharT* str, size_type pos = 0) const noexcept
+  constexpr size_type find_first_of(const CharT* str, size_type pos = 0) const noexcept
   {
     return find_first_of(str, pos, traits_type::length(str));
   }
 
-  size_type find_last_of(const CharT* str, size_type pos, size_type count) const noexcept;
+  constexpr size_type find_last_of(const CharT* str, size_type pos, size_type count) const noexcept;
 
-  size_type find_last_of(basic_string_view str, size_type pos = npos) const noexcept
+  constexpr size_type find_last_of(basic_string_view str, size_type pos = npos) const noexcept
   {
     return find_last_of(str.data(), (pos == npos ? len_ - 1 : pos), str.length());
   }
 
-  size_type find_last_of(CharT ch, size_type pos = npos) const noexcept
+  constexpr size_type find_last_of(CharT ch, size_type pos = npos) const noexcept
   {
     return rfind(ch, pos == npos ? len_ - 1 : pos);
   }
 
-  size_type find_last_of(const CharT* str, size_type pos = npos) const noexcept
+  constexpr size_type find_last_of(const CharT* str, size_type pos = npos) const noexcept
   {
     return find_last_of(str, (pos == npos ? len_ - 1 : pos), traits_type::length(str));
   }
 
-  size_type find_first_not_of(const CharT* str, size_type pos, size_type n) const noexcept;
+  constexpr size_type find_first_not_of(const CharT* str, size_type pos, size_type n) const noexcept;
 
-  size_type find_first_not_of(CharT ch, size_type pos) const noexcept;
+  constexpr size_type find_first_not_of(CharT ch, size_type pos) const noexcept;
 
-  size_type find_first_not_of(basic_string_view str, size_type pos = 0) const noexcept
+  constexpr size_type find_first_not_of(basic_string_view str, size_type pos = 0) const noexcept
   {
     return find_first_not_of(str.data(), pos, str.length());
   }
 
-  size_type find_first_not_of(const CharT* str, size_type pos = 0) const noexcept
+  constexpr size_type find_first_not_of(const CharT* str, size_type pos = 0) const noexcept
   {
     return find_first_not_of(str, pos, traits_type::length(str));
   }
 
-  size_type find_last_not_of(const CharT* str, size_type pos, size_type n) const noexcept;
+  constexpr size_type find_last_not_of(const CharT* str, size_type pos, size_type n) const noexcept;
 
-  size_type find_last_not_of(CharT ch, size_type pos) const noexcept;
+  constexpr size_type find_last_not_of(CharT ch, size_type pos) const noexcept;
 
-  size_type find_last_not_of(basic_string_view str, size_type pos = npos) const noexcept
+  constexpr size_type find_last_not_of(basic_string_view str, size_type pos = npos) const noexcept
   {
     return find_last_not_of(str.data(), (pos == npos ? len_ - 1 : pos), str.length());
   }
 
-  size_type find_last_not_of(const CharT* str, size_type pos = npos) const noexcept
+  constexpr size_type find_last_not_of(const CharT* str, size_type pos = npos) const noexcept
   {
     return find_last_not_of(str, (pos == npos ? len_ - 1 : pos), traits_type::length(str));
   }

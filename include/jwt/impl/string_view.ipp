@@ -26,7 +26,7 @@ SOFTWARE.
 namespace jwt {
 
 template <typename CharT, typename Traits>
-auto basic_string_view<CharT, Traits>::find(
+constexpr auto basic_string_view<CharT, Traits>::find(
     const CharT* str, 
     size_type pos, 
     size_type n) const noexcept -> size_type
@@ -50,7 +50,7 @@ auto basic_string_view<CharT, Traits>::find(
 }
 
 template <typename CharT, typename Traits>
-auto basic_string_view<CharT, Traits>::rfind(
+constexpr auto basic_string_view<CharT, Traits>::rfind(
     const CharT* str,
     size_type pos,
     size_type n) const noexcept -> size_type
@@ -72,7 +72,7 @@ auto basic_string_view<CharT, Traits>::rfind(
 }
 
 template <typename CharT, typename Traits>
-auto basic_string_view<CharT, Traits>::find(
+constexpr auto basic_string_view<CharT, Traits>::find(
     const CharT ch, 
     size_type pos) const noexcept -> size_type
 {
@@ -85,7 +85,7 @@ auto basic_string_view<CharT, Traits>::find(
 }
 
 template <typename CharT, typename Traits>
-auto basic_string_view<CharT, Traits>::rfind(
+constexpr auto basic_string_view<CharT, Traits>::rfind(
     const CharT ch,
     size_type pos) const noexcept -> size_type
 {
@@ -101,7 +101,7 @@ auto basic_string_view<CharT, Traits>::rfind(
 }
 
 template <typename CharT, typename Traits>
-auto basic_string_view<CharT, Traits>::find_first_of(
+constexpr auto basic_string_view<CharT, Traits>::find_first_of(
     const CharT* str, 
     size_type pos, 
     size_type count) const noexcept -> size_type
@@ -119,7 +119,7 @@ auto basic_string_view<CharT, Traits>::find_first_of(
 }
 
 template <typename CharT, typename Traits>
-auto basic_string_view<CharT, Traits>::find_last_of(
+constexpr auto basic_string_view<CharT, Traits>::find_last_of(
     const CharT* str, 
     size_type pos, 
     size_type count) const noexcept -> size_type
@@ -143,7 +143,7 @@ auto basic_string_view<CharT, Traits>::find_last_of(
 }
 
 template <typename CharT, typename Traits>
-auto basic_string_view<CharT, Traits>::find_first_not_of(
+constexpr auto basic_string_view<CharT, Traits>::find_first_not_of(
     const CharT* str,
     size_type pos,
     size_type n) const noexcept -> size_type
@@ -161,7 +161,7 @@ auto basic_string_view<CharT, Traits>::find_first_not_of(
 }
 
 template <typename CharT, typename Traits>
-auto basic_string_view<CharT, Traits>::find_last_not_of(
+constexpr auto basic_string_view<CharT, Traits>::find_last_not_of(
     const CharT* str,
     size_type pos,
     size_type n) const noexcept -> size_type
@@ -179,7 +179,7 @@ auto basic_string_view<CharT, Traits>::find_last_not_of(
 }
 
 template <typename CharT, typename Traits>
-auto basic_string_view<CharT, Traits>::find_first_not_of(
+constexpr auto basic_string_view<CharT, Traits>::find_first_not_of(
     CharT ch,
     size_type pos) const noexcept -> size_type
 {
@@ -193,7 +193,7 @@ auto basic_string_view<CharT, Traits>::find_first_not_of(
 }
 
 template <typename CharT, typename Traits>
-auto basic_string_view<CharT, Traits>::find_last_not_of(
+constexpr auto basic_string_view<CharT, Traits>::find_last_not_of(
     CharT ch,
     size_type pos) const noexcept -> size_type
 {
@@ -209,7 +209,7 @@ auto basic_string_view<CharT, Traits>::find_last_not_of(
 // Comparison Operators
 
 template <typename CharT, typename Traits>
-bool operator== (basic_string_view<CharT, Traits> a,
+constexpr bool operator== (basic_string_view<CharT, Traits> a,
                  basic_string_view<CharT, Traits> b) noexcept
 {
   if (a.length() != b.length()) return false;
@@ -224,35 +224,35 @@ bool operator== (basic_string_view<CharT, Traits> a,
 }
 
 template <typename CharT, typename Traits>
-bool operator!= (basic_string_view<CharT, Traits> a,
+constexpr bool operator!= (basic_string_view<CharT, Traits> a,
                  basic_string_view<CharT, Traits> b) noexcept
 {
   return !( a == b );
 }
 
 template <typename CharT, typename Traits>
-bool operator< (basic_string_view<CharT, Traits> a,
+constexpr bool operator< (basic_string_view<CharT, Traits> a,
                 basic_string_view<CharT, Traits> b) noexcept
 {
   return a.compare(b) < 0;
 }
 
 template <typename CharT, typename Traits>
-bool operator> (basic_string_view<CharT, Traits> a,
+constexpr bool operator> (basic_string_view<CharT, Traits> a,
                 basic_string_view<CharT, Traits> b) noexcept
 {
   return a.compare(b) > 0;
 }
 
 template <typename CharT, typename Traits>
-bool operator<= (basic_string_view<CharT, Traits> a,
+constexpr bool operator<= (basic_string_view<CharT, Traits> a,
                  basic_string_view<CharT, Traits> b) noexcept
 {
   return a.compare(b) <= 0;
 }
 
 template <typename CharT, typename Traits>
-bool operator>= (basic_string_view<CharT, Traits> a,
+constexpr bool operator>= (basic_string_view<CharT, Traits> a,
                  basic_string_view<CharT, Traits> b) noexcept
 {
   return a.compare(b) >= 0;
