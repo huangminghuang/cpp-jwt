@@ -35,8 +35,8 @@ function(cpp_jwt_target name)
   add_test(NAME ${name} COMMAND ./${name} WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 
   if (MSVC)
-    target_compile_options(${name} PRIVATE "/W4")
-    set_target_properties(${name} PROPERTIES LINK_FLAGS "/ignore:4099")
+    target_compile_options(${name} PRIVATE /wd4702 /wd4127) # disable unreachable code && if constexpr warnings
+    set_target_properties(${name} PROPERTIES LINK_FLAGS "/ignore:4099") # disable PDB not found link warnings. 
   else(MSVC)
     target_compile_options(${name} PRIVATE "-Wall")
   endif(MSVC)
