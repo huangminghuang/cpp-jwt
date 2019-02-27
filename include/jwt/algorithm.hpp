@@ -359,7 +359,7 @@ struct HMACSign
 
     unsigned char* res = HMAC(Hasher{}(),
                               key.data(),
-                              key.length(),
+                              static_cast<int>(key.length()),
                               reinterpret_cast<const unsigned char*>(data.data()),
                               data.length(),
                               reinterpret_cast<unsigned char*>(&sign[0]),
@@ -482,7 +482,7 @@ struct PEMSign
 public:
   /// The type of Hashing algorithm
   using hasher_type = Hasher;
-  PEMSign(SCOPED_ENUM algorithm alg){}
+  PEMSign(SCOPED_ENUM algorithm){}
   PEMSign() = default;
 
   /**

@@ -51,7 +51,7 @@ verify_result_t HMACSign<Hasher>::verify(
 
   unsigned char* res = HMAC(Hasher{}(),
                             key.data(),
-                            key.length(),
+                            static_cast<int>(key.length()),
                             reinterpret_cast<const unsigned char*>(head.data()),
                             head.length(),
                             enc_buf,
@@ -363,7 +363,7 @@ std::string PEMSign<Hasher>::public_key_ser(
 
   EC_SIG_uptr ec_sig{d2i_ECDSA_SIG(nullptr,
                                    (const unsigned char**)&char_ptr,
-                                   sign.length()),
+                                   static_cast<long>(sign.length())),
                      ec_sig_deletor};
 
   if (!ec_sig) {

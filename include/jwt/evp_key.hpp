@@ -37,9 +37,18 @@ struct pem_str
 class pem_file 
 {
 public:
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4996)
+#endif
+
   pem_file(const char* filename) noexcept
   : fp_(fopen(filename, "rb")) {
   }
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
   ~pem_file() { if (fp_)  { fclose(fp_); } }
 
   pem_file(const pem_file&) = delete;
@@ -82,7 +91,7 @@ public:
   evp_key(pem_str pem_key)
   {
     BIO_uptr bufkey{
-      BIO_new_mem_buf((void*)pem_key.value.data(), pem_key.value.length()), bio_deletor};
+      BIO_new_mem_buf((void*)pem_key.value.data(), static_cast<int>(pem_key.value.length())), bio_deletor};
 
     if (!bufkey) {
       throw MemoryAllocationException("BIO_new_mem_buf failed");

@@ -93,7 +93,7 @@ struct secret_param
 
   Key get() const { return key_; }
   template <typename U>
-  Key get( U&& u,std::enable_if_t<!is_invocable<Key, U>::value && std::is_reference<Key>::value>* =0) const  { return key_; }
+  Key get( U&& ,std::enable_if_t<!is_invocable<Key, U>::value && std::is_reference<Key>::value>* =0) const  { return key_; }
 
   template <typename U>
   Key get( U&& u,std::enable_if_t<!is_invocable<Key, U>::value && !std::is_reference<Key>::value>* =0) && { 

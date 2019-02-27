@@ -171,7 +171,7 @@ template<typename T, typename ...Rest>
 verify_result_t verify(const jwt_object& obj, string_view head, string_view sign, params::detail::checker_param<T>&& checker, Rest... r) ;
 
 template<typename T, typename ...Rest>
-verify_result_t verify(const jwt_object& obj, string_view head, string_view sign, T&& t, Rest... r) 
+verify_result_t verify(const jwt_object& obj, string_view head, string_view sign, T&&, Rest... r) 
 {
   return verify(obj, head, sign, std::forward<Rest>(r)...);
 }
@@ -493,7 +493,7 @@ jwt_object::three_parts(const jwt::string_view enc_str)
 }
 
 template <typename DecodeParams, typename Key, typename Hasher, typename... Rest>
-void jwt_object::set_decode_params(DecodeParams& dparams, params::detail::secret_param<Key, Hasher>&& v, Rest&&... args) {
+void jwt_object::set_decode_params(DecodeParams& dparams, params::detail::secret_param<Key, Hasher>&&, Rest&&... args) {
   return set_decode_params(dparams, std::forward<Rest>(args)...);
 }
 
@@ -556,7 +556,7 @@ void jwt_object::set_decode_params(DecodeParams& dparams, params::detail::checke
 }
 
 template <typename DecodeParams>
-void jwt_object::set_decode_params(DecodeParams& dparams)
+void jwt_object::set_decode_params(DecodeParams&)
 {
   return;
 }
@@ -681,7 +681,7 @@ jwt_object decode(const jwt::string_view enc_str,
   if (dparams.verify) {
     try {
       ec = obj.verify(dparams);
-    } catch (const json_ns::detail::type_error& e) {
+    } catch (const json_ns::detail::type_error&) {
       ec = VerificationErrc::TypeConversionError;
     }
 
