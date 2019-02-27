@@ -95,7 +95,7 @@ namespace algo {
 struct HS256
 {
   typedef HMACSign<HS256> signer;
-  static const auto alg = algorithm::HS256;
+  static constexpr auto alg = algorithm::HS256;
   const EVP_MD* operator()() noexcept
   {
     return EVP_sha256();
@@ -108,7 +108,7 @@ struct HS256
 struct HS384
 {
   typedef HMACSign<HS384> signer;
-  static const auto alg = algorithm::HS384;
+  static constexpr auto alg = algorithm::HS384;
   const EVP_MD* operator()() noexcept
   {
     return EVP_sha384();
@@ -121,7 +121,7 @@ struct HS384
 struct HS512
 {
   typedef HMACSign<HS512> signer;
-  static const auto alg = algorithm::HS512;
+  static constexpr auto alg = algorithm::HS512;
   const EVP_MD* operator()() noexcept
   {
     return EVP_sha512();
@@ -134,7 +134,7 @@ struct HS512
 struct NONE
 {
   typedef HMACSign<NONE> signer;
-  static const auto alg = algorithm::NONE;
+  static constexpr auto alg = algorithm::NONE;
   void operator()() noexcept
   {
     return;
@@ -146,9 +146,9 @@ struct NONE
  */
 struct RS256
 {
-  static const int type = EVP_PKEY_RSA;
+  static constexpr int type = EVP_PKEY_RSA;
   typedef PEMSign<RS256> signer;
-  static const auto alg = algorithm::RS256;
+  static constexpr auto alg = algorithm::RS256;
   const EVP_MD* operator()() noexcept
   {
     return EVP_sha256();
@@ -160,9 +160,9 @@ struct RS256
  */
 struct RS384
 {
-  static const int type = EVP_PKEY_RSA;
+  static constexpr int type = EVP_PKEY_RSA;
   typedef PEMSign<RS384> signer;
-  static const auto alg = algorithm::RS384;
+  static constexpr auto alg = algorithm::RS384;
 
   const EVP_MD* operator()() noexcept
   {
@@ -175,9 +175,9 @@ struct RS384
  */
 struct RS512
 {
-  static const int type = EVP_PKEY_RSA;
+  static constexpr int type = EVP_PKEY_RSA;
   typedef PEMSign<RS512> signer;
-  static const auto alg = algorithm::RS512;
+  static constexpr auto alg = algorithm::RS512;
 
   const EVP_MD* operator()() noexcept
   {
@@ -190,9 +190,9 @@ struct RS512
  */
 struct ES256
 {
-  static const int type = EVP_PKEY_EC;
+  static constexpr int type = EVP_PKEY_EC;
   typedef PEMSign<ES256> signer;
-  static const auto alg = algorithm::ES256;
+  static constexpr auto alg = algorithm::ES256;
 
   const EVP_MD* operator()() noexcept
   {
@@ -205,9 +205,9 @@ struct ES256
  */
 struct ES384
 {
-  static const int type = EVP_PKEY_EC;
+  static constexpr int type = EVP_PKEY_EC;
   typedef PEMSign<ES384> signer;
-  static const auto alg = algorithm::ES384;
+  static constexpr auto alg = algorithm::ES384;
 
   const EVP_MD* operator()() noexcept
   {
@@ -220,9 +220,9 @@ struct ES384
  */
 struct ES512
 {
-  static const int type = EVP_PKEY_EC;
+  static constexpr int type = EVP_PKEY_EC;
   typedef PEMSign<ES512> signer;
-  static const auto alg = algorithm::ES512;
+  static constexpr auto alg = algorithm::ES512;
 
   const EVP_MD* operator()() noexcept
   {
@@ -233,7 +233,7 @@ struct ES512
 struct UNKN
 {
   typedef UNKNSign signer;
-  static const auto alg = algorithm::UNKN;
+  static constexpr auto alg = algorithm::UNKN;
 };
 } //END Namespace algo
 
@@ -450,6 +450,15 @@ struct HMACSign<algo::NONE>
 
 };
 
+/**
+ * Use for OpenSSL signature and verfication when
+ * the algorithm is only known at run time.
+ *
+ * The signing and verification APIs would be
+ * dispatched to HMACSign or PEMSign based on 
+ * the `alg` specified in the contructor.
+ *
+ */
 struct UNKNSign
 {
   using hasher_type = algo::UNKN;
@@ -503,6 +512,19 @@ public:
     return sign(evp_privkey{pem_str{key}}, data );
   }
 
+  /**
+   * Signs the input data using PEM encryption algorithm.
+   *
+   * Arguments:
+   *  @key : The key/secret to be used for signing.
+   *         Cannot be an empty string.
+   *  @data: The data to be signed.
+   *
+   * Exceptions:
+   *  Any allocation failure would be thrown out as
+   *  jwt::MemoryAllocationException.
+   */
+
   sign_result_t sign(const evp_privkey& pkey, const jwt::string_view data) const
   {
     if (pkey.empty()) return { std::string{}, std::error_code{AlgorithmErrc::KeyNotFoundErr} };
@@ -524,6 +546,25 @@ public:
   }
 
   /**
+   * Verifies the JWT string against the signature using
+   * the provided key.
+   *
+   * Arguments:
+   *  @key : The secret/key to use for the signing.
+   *         Cannot be empty string.
+   *  @head : The part of JWT encoded string representing header
+   *          and the payload claims.
+   *  @sign : The signature part of the JWT encoded string.
+   *
+   *  Returns:
+   *    verify_result_t
+   *    verify_result_t::first set to true if verification succeeds.
+   *    false otherwise. 
+   *    verify_result_t::second set to relevant error if verification fails.
+   *
+   *  Exceptions:
+   *    Any allocation failure will result in jwt::MemoryAllocationException
+   *    being thrown.
    */
   verify_result_t
   verify(const jwt::string_view key, const jwt::string_view head, const jwt::string_view sign) const;

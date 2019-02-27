@@ -109,6 +109,14 @@ public:
   {
   }
 
+  /**
+   * Contruct an evp_key object with an existing OpenSSL EVP_PKEY pointer.
+   *
+   * Notice it would take over the ownership of `pkey`; i.e., it would
+   * NOT increment the reference count of `pkey` during the construction
+   * of the object and the reference count of `pkey` would be decemented
+   * when the object is destructed.
+   */
   explicit evp_key(EVP_PKEY* pkey) noexcept
   : pkey_(pkey)
   {
