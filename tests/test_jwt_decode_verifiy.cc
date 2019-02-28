@@ -106,6 +106,23 @@ TEST (DecodeVerify, InvalidIssuerTest_2)
   EXPECT_EQ (ec.value(), static_cast<int>(jwt::VerificationErrc::InvalidIssuer));
 }
 
+TEST (DecodeVerify, InvalidIssuerTest_3)
+{
+  using namespace jwt::params;
+
+  jwt::jwt_object obj{algorithm("hs256"), secret("secret"), payload({{"iss", "test"}})};
+  obj.add_claim("iss", 1);
+
+  std::error_code ec;
+  auto enc_str = obj.signature(ec);
+  ASSERT_FALSE (ec);
+
+  auto dec_obj = jwt::decode(enc_str, algorithms({"hs256"}), ec, secret("secret"), issuer("arun.murali"));
+  ASSERT_TRUE (ec);
+  EXPECT_EQ (ec.value(), static_cast<int>(jwt::VerificationErrc::InvalidIssuer));
+}
+
+
 TEST (DecodeVerify, NotImmatureSignatureTest)
 {
   using namespace jwt::params;

@@ -192,74 +192,6 @@ struct leeway_param
 
 /**
  */
-struct audience_param
-{
-  audience_param(std::string aud)
-    : aud_(std::move(aud))
-  {}
-
-  const std::string& get() const& noexcept { return aud_; }
-  std::string get() && noexcept { return aud_; }
-
-  std::string aud_;
-};
-
-/**
- */
-struct issuer_param
-{
-  issuer_param(std::string iss)
-    : iss_(std::move(iss))
-  {}
-
-  const std::string& get() const& noexcept { return iss_; }
-  std::string get() && noexcept { return iss_; }
-
-  std::string iss_;
-};
-
-/**
- */
-struct subject_param
-{
-  subject_param(std::string sub)
-    : sub_(std::move(sub))
-  {}
-
-  const std::string& get() const& noexcept { return sub_; }
-  std::string get() && noexcept { return sub_; }
-
-  std::string sub_;
-};
-
-/**
- */
-struct validate_iat_param
-{
-  validate_iat_param(bool v)
-    : iat_(v)
-  {}
-
-  bool get() const noexcept { return iat_; }
-
-  bool iat_;
-};
-
-/**
- */
-struct validate_jti_param
-{
-  validate_jti_param(bool v)
-    : jti_(v)
-  {}
-
-  bool get() const noexcept { return jti_; }
-
-  bool jti_;
-};
-
-/**
- */
 struct nbf_param
 {
   nbf_param(const jwt::system_time_t tp)
@@ -407,44 +339,88 @@ algorithms(SequenceConcept&& sc)
   return { std::forward<SequenceConcept>(sc) };
 }
 
-/**
- */
-inline detail::audience_param
-aud(const jwt::string_view aud)
+template <typename T>
+inline detail::checker_param<T>
+custom_check(T&& lambda ) noexcept
 {
-  return { aud.data() };
+  return {std::forward<T>(lambda)};
 }
 
 /**
  */
-inline detail::issuer_param
-issuer(const jwt::string_view iss)
+inline auto
+aud(const jwt::string_view value) noexcept
 {
-  return { iss.data() };
+  return custom_check([value](const auto& obj) noexcept -> std::error_code {
+    //Check for issuer
+    if (!obj.payload().has_claim_with_value("aud", value)) {
+      return VerificationErrc::InvalidAudience;
+    }
+    return std::error_code{};
+  });
 }
 
 /**
  */
-inline detail::subject_param
-sub(const jwt::string_view subj)
+
+inline auto
+issuer(jwt::string_view value) noexcept
 {
-  return { subj.data() };
+  return custom_check([value](const auto& obj) noexcept -> std::error_code {
+    //Check for issuer
+    if (!obj.payload().has_claim_with_value("iss", value)) {
+      return VerificationErrc::InvalidIssuer;
+    }
+    return std::error_code{};
+  });
 }
 
 /**
  */
-inline detail::validate_iat_param
-validate_iat(bool v)
+inline auto
+sub(const jwt::string_view value) noexcept
 {
-  return { v };
+  return custom_check([value](const auto& obj) noexcept -> std::error_code {
+    //Check for issuer
+    if (!obj.payload().has_claim_with_value("sub", value)) {
+      return VerificationErrc::InvalidSubject;
+    }
+    return std::error_code{};
+  });
+}
+
+
+/**
+ */
+inline auto
+validate_iat(bool v) noexcept
+{
+  return custom_check([v](const auto& obj) noexcept ->std::error_code {
+    if (v) {
+      if (!obj.has_claim("iat")) {
+        return VerificationErrc::InvalidIAT;
+      } else {
+        auto val = obj.payload().create_json_obj();
+        auto itr = val.find("iat");
+        if (! itr->is_number_unsigned()) return VerificationErrc::TypeConversionError;
+      }
+    } 
+    return std::error_code{};
+  });
 }
 
 /**
  */
-inline detail::validate_jti_param
-validate_jti(bool v)
+inline auto
+validate_jti(bool v) noexcept
 {
-  return { v };
+  return custom_check([v](const auto& obj) noexcept -> std::error_code {
+    //Check for jti
+    if (v && !obj.payload().has_claim("jti")) {
+      return VerificationErrc::InvalidJTI;
+    }
+    return std::error_code{};
+  });
 }
 
 /**
@@ -463,12 +439,6 @@ nbf(const uint64_t epoch)
   return { epoch };
 }
 
-template <typename T>
-inline detail::checker_param<T>
-custom_check(T&& lambda )
-{
-  return detail::checker_param<T>{std::forward<T>(lambda)};
-}
 
 } // END namespace params
 } // END namespace jwt

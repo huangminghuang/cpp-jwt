@@ -166,25 +166,28 @@ verify_result_t verify(const jwt_object& obj, string_view head, string_view sign
 }
 
 template<typename Key, typename Hasher, typename ...Rest>
-verify_result_t verify(const jwt_object& obj, string_view head, string_view sign, params::detail::secret_param<Key, Hasher>&& sparam, Rest...) ;
+verify_result_t verify(const jwt_object& obj, string_view head, string_view sign, params::detail::secret_param<Key, Hasher>&& sparam, Rest&&...) ;
 template<typename T, typename ...Rest>
-verify_result_t verify(const jwt_object& obj, string_view head, string_view sign, params::detail::checker_param<T>&& checker, Rest... r) ;
+verify_result_t verify(const jwt_object& obj, string_view head, string_view sign, params::detail::checker_param<T>&& checker, Rest&&... r) ;
 
 template<typename T, typename ...Rest>
-verify_result_t verify(const jwt_object& obj, string_view head, string_view sign, T&&, Rest... r) 
+verify_result_t verify(const jwt_object& obj, string_view head, string_view sign, T&&, Rest&&... r) 
 {
   return verify(obj, head, sign, std::forward<Rest>(r)...);
 }
 
 template<typename Key, typename Hasher, typename ...Rest>
-verify_result_t verify(const jwt_object& obj, string_view head, string_view sign, params::detail::secret_param<Key, Hasher>&& s, Rest...) 
+verify_result_t verify(const jwt_object& obj, string_view head, string_view sign, params::detail::secret_param<Key, Hasher>&& s, Rest&&... r) 
 {
   using signer = typename Hasher::signer;
-  return signer{obj.header().algo()}.verify(std::move(s).get(obj), head, sign);
+  verify_result_t result = verify(obj, head, sign, std::forward<Rest>(r)...);
+  if (result.second == std::error_code{DecodeErrc::KeyNotPresent})
+    return signer{obj.header().algo()}.verify(std::move(s).get(obj), head, sign);
+  return result;
 }
 
 template<typename T, typename ...Rest>
-verify_result_t verify(const jwt_object& obj, string_view head, string_view sign, params::detail::checker_param<T>&& checker, Rest... r) 
+verify_result_t verify(const jwt_object& obj, string_view head, string_view sign, params::detail::checker_param<T>&& checker, Rest&&... r) 
 {
   std::error_code ec = checker.check_(obj);
   if (ec) return { false, ec };
@@ -356,118 +359,41 @@ jwt_object::signature(params::detail::secret_param<Key, Hasher>&& s)
 
 template <typename Params>
 std::error_code jwt_object::verify(
-    const Params& dparams) const
+    const Params& dparams) const noexcept
 {
-  std::error_code ec{};
-
-
 
   //Check for the expiry timings
   if (has_claim(registered_claims::expiration)) {
-    auto curr_time = 
+    uint64_t curr_time = 
         std::chrono::duration_cast<
                  std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
-    auto p_exp = payload()
-                 .get_claim_value<uint64_t>(registered_claims::expiration);
+    auto itr = payload().create_json_obj().find("exp");
+    if (! itr->is_number_unsigned()) return VerificationErrc::TypeConversionError;
+    auto p_exp = itr->get<uint64_t>();
 
-    if (static_cast<uint64_t>(curr_time) > static_cast<uint64_t>(p_exp + dparams.leeway)) {
-      ec = VerificationErrc::TokenExpired;
-      return ec;
+    if (curr_time > static_cast<uint64_t>(p_exp + dparams.leeway)) {
+      return VerificationErrc::TokenExpired;
     }
   } 
-
-  //Check for issuer
-  if (dparams.has_issuer)
-  {
-    if (has_claim(registered_claims::issuer))
-    {
-      const std::string& p_issuer = payload()
-                                    .get_claim_value<std::string>(registered_claims::issuer);
-
-      if (p_issuer != dparams.issuer) {
-        ec = VerificationErrc::InvalidIssuer;
-        return ec;
-      }
-    } else {
-      ec = VerificationErrc::InvalidIssuer;
-      return ec;
-    }
-  }
-
-  //Check for audience
-  if (dparams.has_aud)
-  {
-    if (has_claim(registered_claims::audience))
-    {
-      const std::string& p_aud = payload()
-                                 .get_claim_value<std::string>(registered_claims::audience);
-
-      if (p_aud != dparams.aud) {
-        ec = VerificationErrc::InvalidAudience;
-        return ec;
-      }
-    } else {
-      ec = VerificationErrc::InvalidAudience;
-      return ec;
-    }
-  }
-
-  //Check the subject
-  if (dparams.has_sub)
-  {
-    if (has_claim(registered_claims::subject))
-    {
-      const std::string& p_sub = payload()
-                                 .get_claim_value<std::string>(registered_claims::subject);
-      if (p_sub != dparams.sub) {
-        ec = VerificationErrc::InvalidSubject;
-        return ec;
-      }
-    } else {
-      ec = VerificationErrc::InvalidSubject;
-      return ec;
-    }
-  }
 
   //Check for NBF
   if (has_claim(registered_claims::not_before))
   {
-    auto curr_time =
+    uint64_t curr_time =
             std::chrono::duration_cast<
               std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
-    auto p_exp = payload()
-                 .get_claim_value<uint64_t>(registered_claims::not_before);
+    auto itr = payload().create_json_obj().find("nbf");
+    if (! itr->is_number_unsigned()) return VerificationErrc::TypeConversionError;
+    auto p_exp = itr->get<uint64_t>();
 
-    if (static_cast<uint64_t>(p_exp - dparams.leeway) > static_cast<uint64_t>(curr_time)) {
-      ec = VerificationErrc::ImmatureSignature;
-      return ec;
+    if (static_cast<uint64_t>(p_exp - dparams.leeway) > curr_time) {
+      return VerificationErrc::ImmatureSignature;
     }
   }
 
-  //Check IAT validation
-  if (dparams.validate_iat) {
-    if (!has_claim(registered_claims::issued_at)) {
-      ec = VerificationErrc::InvalidIAT;
-      return ec;
-    } else {
-      // Will throw type conversion error
-      auto val = payload()
-                 .get_claim_value<uint64_t>(registered_claims::issued_at);
-      (void)val;
-    }
-  }
-
-  //Check JTI validation
-  if (dparams.validate_jti) {
-    if (!has_claim("jti")) {
-      ec = VerificationErrc::InvalidJTI;
-      return ec;
-    }
-  }
-
-  return ec;
+  return std::error_code{};
 }
 
 
@@ -511,46 +437,8 @@ void jwt_object::set_decode_params(DecodeParams& dparams, params::detail::verify
   jwt_object::set_decode_params(dparams, std::forward<Rest>(args)...);
 }
 
-template <typename DecodeParams, typename... Rest>
-void jwt_object::set_decode_params(DecodeParams& dparams, params::detail::issuer_param i, Rest&&... args)
-{
-  dparams.issuer = std::move(i).get();
-  dparams.has_issuer = true;
-  jwt_object::set_decode_params(dparams, std::forward<Rest>(args)...);
-}
-
-template <typename DecodeParams, typename... Rest>
-void jwt_object::set_decode_params(DecodeParams& dparams, params::detail::audience_param a, Rest&&... args)
-{
-  dparams.aud = std::move(a).get();
-  dparams.has_aud = true;
-  jwt_object::set_decode_params(dparams, std::forward<Rest>(args)...);
-}
-
-template <typename DecodeParams, typename... Rest>
-void jwt_object::set_decode_params(DecodeParams& dparams, params::detail::subject_param s, Rest&&... args)
-{
-  dparams.sub = std::move(s).get();
-  dparams.has_sub = true;
-  jwt_object::set_decode_params(dparams, std::forward<Rest>(args)...);
-}
-
-template <typename DecodeParams, typename... Rest>
-void jwt_object::set_decode_params(DecodeParams& dparams, params::detail::validate_iat_param v, Rest&&... args)
-{
-  dparams.validate_iat = v.get();
-  jwt_object::set_decode_params(dparams, std::forward<Rest>(args)...);
-}
-
-template <typename DecodeParams, typename... Rest>
-void jwt_object::set_decode_params(DecodeParams& dparams, params::detail::validate_jti_param v, Rest&&... args)
-{
-  dparams.validate_jti = v.get();
-  jwt_object::set_decode_params(dparams, std::forward<Rest>(args)...);
-}
-
 template <typename DecodeParams, typename T, typename... Rest>
-void jwt_object::set_decode_params(DecodeParams& dparams, params::detail::checker_param<T>&&, Rest&&... args)
+void jwt_object::set_decode_params(DecodeParams& dparams, const params::detail::checker_param<T>& c, Rest&&... args)
 {
   jwt_object::set_decode_params(dparams, std::forward<Rest>(args)...);
 }
@@ -611,27 +499,6 @@ jwt_object decode(const jwt::string_view enc_str,
 
     /// Leeway parameter. Defaulted to zero seconds.
     uint32_t leeway = 0;
-
-    ///The issuer
-    //TODO: optional type
-    bool has_issuer = false;
-    std::string issuer;
-
-    ///The audience
-    //TODO: optional type
-    bool has_aud = false;
-    std::string aud;
-
-    //The subject
-    //TODO: optional type
-    bool has_sub = false;
-    std::string sub;
-
-    //Validate IAT
-    bool validate_iat = false;
-
-    //Validate JTI
-    bool validate_jti = false;
   };
 
   decode_params dparams{};
@@ -679,11 +546,7 @@ jwt_object decode(const jwt::string_view enc_str,
   obj.payload(std::move(payload));
   jwt_object::set_decode_params(dparams, std::forward<Args>(args)...);
   if (dparams.verify) {
-    try {
-      ec = obj.verify(dparams);
-    } catch (const json_ns::detail::type_error&) {
-      ec = VerificationErrc::TypeConversionError;
-    }
+    ec = obj.verify(dparams);
 
     if (ec) return obj;
     // Length of the encoded header and payload only.

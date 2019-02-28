@@ -79,6 +79,8 @@ inline enum type str_to_type(const jwt::string_view typ) noexcept
  */
 #if defined(__clang__) || !defined(__GNUC__) || __GNUC__ > 5
 constexpr 
+#else
+inline
 #endif  
 jwt::string_view type_to_str(SCOPED_ENUM type typ)
 {
@@ -119,6 +121,8 @@ enum class registered_claims
  */
 #if defined(__clang__) || !defined(__GNUC__) || __GNUC__ > 5
 constexpr 
+#else
+inline
 #endif 
 jwt::string_view reg_claims_to_str(SCOPED_ENUM registered_claims claim) noexcept
 {
@@ -729,12 +733,20 @@ public: // Exposed APIs
    * value in the payload.
    */
   template <typename T>
-  bool has_claim_with_value(const jwt::string_view cname, T&& cvalue) const
+  bool has_claim_with_value(const jwt::string_view cname, T&& cvalue) const noexcept
   {
     auto itr = claim_names_.find(cname);
     if (itr == claim_names_.end()) return false;
 
     return (cvalue == payload_[cname.data()]);
+  }
+
+  bool has_claim_with_value(const jwt::string_view cname, jwt::string_view cvalue) const noexcept
+  {
+    auto itr = claim_names_.find(cname);
+    if (itr == claim_names_.end()) return false;
+    const std::string* ptr = payload_[cname.data()].get_ptr<const std::string*>();
+    return ptr != nullptr ? (cvalue == jwt::string_view(*ptr)) : false;
   }
 
   /**
@@ -744,7 +756,7 @@ public: // Exposed APIs
    * type `registered_claims`.
    */
   template <typename T>
-  bool has_claim_with_value(const SCOPED_ENUM registered_claims cname, T&& value) const
+  bool has_claim_with_value(const SCOPED_ENUM registered_claims cname, T&& value) const noexcept
   {
     return has_claim_with_value(reg_claims_to_str(cname), std::forward<T>(value));
   }
@@ -1041,7 +1053,7 @@ public: // Exposed APIs
    * by reference.
    */
   template <typename Params>
-  std::error_code verify(const Params& dparams) const;
+  std::error_code verify(const Params& dparams) const noexcept;
 
 private: // private APIs
   /**
@@ -1084,23 +1096,8 @@ public: //TODO: Not good
   template <typename DecodeParams, typename... Rest>
   static void set_decode_params(DecodeParams& dparams, params::detail::verify_param v, Rest&&... args);
 
-  template <typename DecodeParams, typename... Rest>
-  static void set_decode_params(DecodeParams& dparams, params::detail::issuer_param i, Rest&&... args);
-
-  template <typename DecodeParams, typename... Rest>
-  static void set_decode_params(DecodeParams& dparams, params::detail::audience_param a, Rest&&... args);
-
-  template <typename DecodeParams, typename... Rest>
-  static void set_decode_params(DecodeParams& dparams, params::detail::subject_param a, Rest&&... args);
-
-  template <typename DecodeParams, typename... Rest>
-  static void set_decode_params(DecodeParams& dparams, params::detail::validate_iat_param v, Rest&&... args);
-
-  template <typename DecodeParams, typename... Rest>
-  static void set_decode_params(DecodeParams& dparams, params::detail::validate_jti_param v, Rest&&... args);
-
   template <typename DecodeParams, typename T, typename... Rest>
-  static void set_decode_params(DecodeParams& dparams, params::detail::checker_param<T>&& v, Rest&&... args);
+  static void set_decode_params(DecodeParams& dparams, const params::detail::checker_param<T>& v, Rest&&... args);
 
   template <typename DecodeParams>
   static void set_decode_params(DecodeParams& dparams);
