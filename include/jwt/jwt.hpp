@@ -61,7 +61,7 @@ enum class type
  * Converts a string representing a value of type
  * `enum class type` into its actual type.
  */
-inline enum type str_to_type(const jwt::string_view typ) noexcept
+inline enum type str_to_type(std::string typ) noexcept
 {
   assert (typ.length() && "Empty type string");
 
@@ -124,7 +124,7 @@ constexpr
 #else
 inline
 #endif 
-jwt::string_view reg_claims_to_str(SCOPED_ENUM registered_claims claim) noexcept
+const char* reg_claims_to_str(SCOPED_ENUM registered_claims claim) noexcept
 {
   switch (claim) {
     case registered_claims::expiration: return "exp";
@@ -138,48 +138,6 @@ jwt::string_view reg_claims_to_str(SCOPED_ENUM registered_claims claim) noexcept
   };
   return "";
 }
-
-/**
- * A helper class that enables reuse of the 
- * std::set container with custom comparator.
- */
-struct jwt_set
-{
-  /**
-   * Transparent comparator.
-   * @note: C++14 only.
-   */
-  struct case_compare
-  {
-    using is_transparent = std::true_type;
-
-    bool operator()(const std::string& lhs, const std::string& rhs) const
-    {
-      int ret = strcmp(lhs.c_str(), rhs.c_str());
-      return (ret < 0);
-    }
-
-    bool operator()(const jwt::string_view lhs, const jwt::string_view rhs) const
-    {
-      int ret = strcmp(lhs.data(), rhs.data());
-      return (ret < 0);
-    }
-
-    bool operator()(const std::string& lhs, const jwt::string_view rhs) const
-    {
-      int ret = strcmp(lhs.data(), rhs.data());
-      return (ret < 0);
-    }
-
-    bool operator()(const jwt::string_view lhs, const std::string& rhs) const
-    {
-      int ret = strcmp(lhs.data(), rhs.data());
-      return (ret < 0);
-    }
-  };
-
-  using header_claim_set_t = std::set<std::string, case_compare>;
-};
 
 // Fwd declaration for friend functions to specify the 
 // default arguments
@@ -376,10 +334,10 @@ public: // Exposed APIs
   /**
    * Set the JWT type header. String overload.
    */
-  void typ(const jwt::string_view sv)
+  void typ(std::string sv)
   {
-    typ_ = str_to_type(sv.data());
-    payload_["typ"] = type_to_str(typ_).to_string();
+    typ_ = str_to_type(sv);
+    payload_["typ"] = sv;
   }
 
   /**
@@ -398,15 +356,16 @@ public: // Exposed APIs
                       !std::is_same<jwt::string_view, std::decay_t<T>>::value
                      >
            >
-  bool add_header(const jwt::string_view hname, T&& hvalue, bool overwrite=false)
+  bool add_header(std::string hname, T&& hvalue, bool overwrite=false)
   {
-    auto itr = headers_.find(hname);
-    if (itr != std::end(headers_) && !overwrite) {
-      return false;
+    auto itr = payload_.find(hname);
+    if (itr != std::end(payload_)) {
+      if (!overwrite) return false;
+      *itr = hvalue;
+      return true;
     }
 
-    headers_.emplace(hname.data(), hname.length());
-    payload_[hname.data()] = std::forward<T>(hvalue);
+    payload_.emplace(hname, std::forward<T>(hvalue));
 
     return true;
   }
@@ -415,7 +374,7 @@ public: // Exposed APIs
    * Add a header to the JWT header.
    * Overload which takes the header value as `jwt::string_view`
    */
-  bool add_header(const jwt::string_view cname, const jwt::string_view cvalue, bool overwrite=false)
+  bool add_header(std::string cname, const jwt::string_view cvalue, bool overwrite=false)
   {
     return add_header(cname,
                       std::string{cvalue.data(), cvalue.length()},
@@ -427,20 +386,14 @@ public: // Exposed APIs
    * NOTE: Special handling for removing type field
    * from header. The typ_ is set to NONE when removed.
    */
-  bool remove_header(const jwt::string_view hname)
+  bool remove_header(std::string hname)
   {
-    if (!strcasecmp(hname.data(), "typ")) {
+    if (hname == "typ") {
       typ_ = type::NONE;
-      payload_.erase(hname.data());
+      payload_.erase(hname);
       return true;
     }
-
-    auto itr = headers_.find(hname);
-    if (itr == std::end(headers_)) {
-      return false;
-    }
-    payload_.erase(hname.data());
-    headers_.erase(hname.data());
+    payload_.erase(hname);
 
     return true;
   }
@@ -449,10 +402,10 @@ public: // Exposed APIs
    * Checks if header with the given name
    * is present or not.
    */
-  bool has_header(const jwt::string_view hname)
+  bool has_header(std::string hname)
   {
-    if (!strcasecmp(hname.data(), "typ")) return typ_ != type::NONE;
-    return headers_.find(hname) != std::end(headers_);
+    if (hname == "typ") return typ_ != type::NONE;
+    return payload_.find(hname) != std::end(payload_);
   }
 
 
@@ -507,9 +460,38 @@ private: // Data members
 
   // The JSON payload object
   json_t payload_;
+};
 
-  //Extra headers for JWS
-  jwt_set::header_claim_set_t headers_; 
+template <typename T>
+struct to_json_basic_type {
+    
+    using type = typename std::conditional<std::is_arithmetic<T>::value, 
+      typename std::conditional<std::is_signed<T>::value, int64_t, uint64_t>::type, T>::type;
+};
+
+template <>
+struct to_json_basic_type<bool> {
+    using type = bool;
+};
+
+template <>
+struct to_json_basic_type<double> {
+    using type = double;
+};
+
+template <>
+struct to_json_basic_type<float> {
+    using type = double;
+};
+
+template <>
+struct to_json_basic_type<const char*> {
+    using type = std::string;
+};
+
+template <>
+struct to_json_basic_type<string_view> {
+    using type = std::string;
 };
 
 
@@ -562,20 +544,19 @@ public: // Exposed APIs
               !std::is_same<jwt::string_view, std::decay_t<T>>::value
               >
            >
-  bool add_claim(const jwt::string_view cname, T&& cvalue, bool overwrite=false)
+  bool add_claim(std::string cname, T&& cvalue, bool overwrite=false)
   {
     // Duplicate claim names not allowed
     // if overwrite flag is set to true.
-    auto itr = claim_names_.find(cname);
-    if (itr != claim_names_.end() && !overwrite) {
-      return false;
+    auto itr = payload_.find(cname);
+    if (itr != payload_.end()){
+      if (!overwrite) return false;
+      *itr = cvalue;
+      return true;
     }
 
-    // Add it to the known set of claims
-    claim_names_.emplace(cname.data(), cname.length());
-
     //Add it to the json payload
-    payload_[cname.data()] = std::forward<T>(cvalue);
+    payload_.emplace(cname, std::forward<T>(cvalue));
 
     return true;
   }
@@ -584,7 +565,7 @@ public: // Exposed APIs
    * Adds a claim.
    * This overload takes string claim value.
    */
-  bool add_claim(const jwt::string_view cname, const jwt::string_view cvalue, bool overwrite=false)
+  bool add_claim(std::string cname, const jwt::string_view cvalue, bool overwrite=false)
   {
     return add_claim(cname, std::string{cvalue.data(), cvalue.length()}, overwrite);
   }
@@ -594,7 +575,7 @@ public: // Exposed APIs
    * This overload takes system_time_t claim value.
    * @note: Useful for providing timestamp as the claim value.
    */
-  bool add_claim(const jwt::string_view cname, system_time_t tp, bool overwrite=false)
+  bool add_claim(std::string cname, system_time_t tp, bool overwrite=false)
   {
     return add_claim(
         cname,
@@ -660,9 +641,9 @@ public: // Exposed APIs
    * JSON library will throw an exception.
    */
   template <typename T>
-  decltype(auto) get_claim_value(const jwt::string_view cname) const
+  decltype(auto) get_claim_value(std::string cname) const
   {
-    return payload_[cname.data()].get<T>();
+    return payload_[cname].get<T>();
   }
 
   /**
@@ -683,14 +664,11 @@ public: // Exposed APIs
   /**
    * Remove a claim identified by a claim name.
    */
-  bool remove_claim(const jwt::string_view cname)
+  bool remove_claim(std::string cname)
   {
-    auto itr = claim_names_.find(cname);
-    if (itr == claim_names_.end()) return false;
-
-    claim_names_.erase(itr);
-    payload_.erase(cname.data());
-
+    auto itr = payload_.find(cname);
+    if (itr == payload_.end()) return false;
+    payload_.erase(cname);
     return true;
   }
 
@@ -712,9 +690,10 @@ public: // Exposed APIs
   //TODO: Not all libc++ version agrees with this
   //because count() is not made const for is_transparent
   //based overload
-  bool has_claim(const jwt::string_view cname) const noexcept
+  bool has_claim(std::string cname) 
+  const noexcept
   {
-    return claim_names_.find(cname) != std::end(claim_names_);
+    return payload_.find(cname) != std::end(payload_);
   }
 
   /**
@@ -733,20 +712,14 @@ public: // Exposed APIs
    * value in the payload.
    */
   template <typename T>
-  bool has_claim_with_value(const jwt::string_view cname, T&& cvalue) const noexcept
+  bool has_claim_with_value(std::string cname, T&& cvalue) const noexcept
   {
-    auto itr = claim_names_.find(cname);
-    if (itr == claim_names_.end()) return false;
+    auto itr = payload_.find(cname);
+    if (itr == payload_.end()) return false;
 
-    return (cvalue == payload_[cname.data()]);
-  }
-
-  bool has_claim_with_value(const jwt::string_view cname, jwt::string_view cvalue) const noexcept
-  {
-    auto itr = claim_names_.find(cname);
-    if (itr == claim_names_.end()) return false;
-    const std::string* ptr = payload_[cname.data()].get_ptr<const std::string*>();
-    return ptr != nullptr ? (cvalue == jwt::string_view(*ptr)) : false;
+    using basic_type = typename to_json_basic_type<std::decay_t<T> >::type;
+    const basic_type* ptr = itr->get_ptr<const basic_type*>();
+    return ptr != nullptr ? (cvalue == *ptr) : false;
   }
 
   /**
@@ -805,7 +778,7 @@ private:
   /// JSON object containing payload
   json_t payload_;
   /// The set of claim names in the payload
-  jwt_set::header_claim_set_t claim_names_;
+  /// jwt_set::header_claim_set_t claim_names_;
 };
 
 
@@ -950,7 +923,7 @@ public: // Exposed APIs
   template <typename T,
             typename=typename std::enable_if_t<
               !std::is_same<system_time_t, std::decay_t<T>>::value>>
-  jwt_object& add_claim(const jwt::string_view name, T&& value)
+  jwt_object& add_claim(std::string name, T&& value)
   {
     payload_.add_claim(name, std::forward<T>(value));
     return *this;
@@ -964,7 +937,7 @@ public: // Exposed APIs
    * Specialization for time points.
    * Eg: Users can set `exp` claim to `chrono::system_clock::now()`.
    */
-  jwt_object& add_claim(const jwt::string_view name, system_time_t time_point);
+  jwt_object& add_claim(std::string name, system_time_t time_point);
 
   /**
    * Provides the glue interface for adding claim.
@@ -983,7 +956,7 @@ public: // Exposed APIs
    *
    * @note: See `jwt_payload::remove_claim` for more details.
    */
-  jwt_object& remove_claim(const jwt::string_view name);
+  jwt_object& remove_claim(std::string name);
 
   /**
    * Provides the glue interface for removing claim.
@@ -1001,7 +974,7 @@ public: // Exposed APIs
    *
    * @note: See `jwt_payload::has_claim` for more details.
    */
-  bool has_claim(const jwt::string_view cname) const noexcept
+  bool has_claim(std::string cname) const noexcept
   {
     return payload().has_claim(cname);
   }

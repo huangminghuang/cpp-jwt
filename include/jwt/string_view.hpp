@@ -92,13 +92,6 @@ public: // 'tors
 
   /// Destructor
 
-  /// conversion operator
-  template <typename Allocator>
-  explicit operator std::basic_string<CharT, Traits, Allocator>() {
-    return std::basic_string<CharT, Traits, Allocator>(this->data(), this->length());
-  }
-
-
 public: // Exposed APIs
   /// Iterator Member Functions
 
@@ -174,7 +167,7 @@ public: // Exposed APIs
   /// String Operation Member Functions
 
   template <typename Allocator>
-  constexpr explicit operator std::basic_string<CharT, Traits, Allocator>() const
+  constexpr operator std::basic_string<CharT, Traits, Allocator>() const
   {
     return {data_, len_};
   }
@@ -368,6 +361,14 @@ private:
 
 /// Helper typedef
 using string_view = basic_string_view<char>;
+
+bool operator == (string_view lhs, string_view rhs) {
+  return lhs.compare(rhs) == 0;
+}
+
+bool operator != (string_view lhs, string_view rhs) {
+  return lhs.compare(rhs) != 0;
+}
 
 
 } // END namespace jwt
