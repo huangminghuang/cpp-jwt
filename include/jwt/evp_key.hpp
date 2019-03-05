@@ -24,8 +24,10 @@ namespace jwt {
 
 /**
  */
-auto bio_deletor = [](BIO* ptr){ if (ptr) BIO_free_all(ptr);};
-using BIO_uptr = std::unique_ptr<BIO, decltype(bio_deletor)>;
+template <typename T, typename Deleter>
+std::unique_ptr<T, Deleter> make_unique_ptr(T* ptr, Deleter deleter) {
+   return std::unique_ptr<T, Deleter>(ptr, deleter);
+}
 
 
 struct pem_str 
@@ -90,8 +92,8 @@ public:
   evp_key() = default;
   evp_key(pem_str pem_key)
   {
-    BIO_uptr bufkey{
-      BIO_new_mem_buf((void*)pem_key.value.data(), static_cast<int>(pem_key.value.length())), bio_deletor};
+    auto bufkey = make_unique_ptr(
+      BIO_new_mem_buf((void*)pem_key.value.data(), static_cast<int>(pem_key.value.length())), BIO_free_all);
 
     if (!bufkey) {
       throw MemoryAllocationException("BIO_new_mem_buf failed");

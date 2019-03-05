@@ -291,33 +291,6 @@ inline SCOPED_ENUM algorithm str_to_alg(const jwt::string_view alg) noexcept
 
 
 /**
- */
-inline void evp_md_ctx_deletor(EVP_MD_CTX* ptr)
-{
-  if (ptr) EVP_MD_CTX_destroy(ptr);
-}
-
-
-/**
- */
-inline void ec_sig_deletor(ECDSA_SIG* ptr)
-{
-  if (ptr) ECDSA_SIG_free(ptr);
-}
-
-/// Useful typedefs
-
-
-using evp_mdctx_deletor_t = decltype(&evp_md_ctx_deletor);
-using EVP_MDCTX_uptr = std::unique_ptr<EVP_MD_CTX, evp_mdctx_deletor_t>;
-
-using ecsig_deletor_t = decltype(&ec_sig_deletor);
-using EC_SIG_uptr = std::unique_ptr<ECDSA_SIG, ecsig_deletor_t>;
-
-
-
-
-/**
  * OpenSSL HMAC based signature and verfication.
  *
  * The template type `Hasher` takes the type representing

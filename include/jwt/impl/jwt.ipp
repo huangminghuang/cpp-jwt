@@ -85,7 +85,7 @@ inline void jwt_header::decode(const jwt::string_view enc_str, std::error_code& 
 
   if (alg_ != algorithm::NONE)
   {
-    auto itr = payload_.find(static<const char*>("typ"));
+    auto itr = payload_.find(static_cast<const char*>("typ"));
 
     if (itr != payload_.end()) {
       const auto& typ = itr.value().get<std::string>();

@@ -33,7 +33,7 @@ verify_result_t HMACSign<Hasher>::verify(
 {
   std::error_code ec{};
 
-  BIO_uptr b64{BIO_new(BIO_f_base64()), bio_deletor};
+  auto b64 = make_unique_ptr(BIO_new(BIO_f_base64()), BIO_free_all);
   if (!b64) {
     throw MemoryAllocationException("BIO_new failed");
   }
@@ -231,7 +231,7 @@ verify_result_t PEMSign<Hasher>::verify(
 
   //Convert EC signature back to ASN1
   if (Hasher::type == EVP_PKEY_EC) {
-    EC_SIG_uptr ec_sig{ECDSA_SIG_new(), ec_sig_deletor};
+    auto ec_sig = make_unique_ptr(ECDSA_SIG_new(), ECDSA_SIG_free);
     if (!ec_sig) {
       throw MemoryAllocationException("ECDSA_SIG_new failed");
     }
@@ -268,7 +268,7 @@ verify_result_t PEMSign<Hasher>::verify(
     }
   }
 
-  EVP_MDCTX_uptr mdctx_ptr{EVP_MD_CTX_create(), evp_md_ctx_deletor};
+  auto mdctx_ptr = make_unique_ptr(EVP_MD_CTX_create(), EVP_MD_CTX_destroy);
   if (!mdctx_ptr) {
     throw MemoryAllocationException("EVP_MD_CTX_create failed");
   }
@@ -301,7 +301,7 @@ std::string PEMSign<Hasher>::evp_digest(
 {
   ec.clear();
 
-  EVP_MDCTX_uptr mdctx_ptr{EVP_MD_CTX_create(), evp_md_ctx_deletor};
+  auto mdctx_ptr = make_unique_ptr(EVP_MD_CTX_create(), EVP_MD_CTX_destroy);
 
   if (!mdctx_ptr) {
     throw MemoryAllocationException("EVP_MD_CTX_create failed");
@@ -361,10 +361,10 @@ std::string PEMSign<Hasher>::public_key_ser(
 
   auto char_ptr = &sign[0];
 
-  EC_SIG_uptr ec_sig{d2i_ECDSA_SIG(nullptr,
+  auto ec_sig = make_unique_ptr(d2i_ECDSA_SIG(nullptr,
                                    (const unsigned char**)&char_ptr,
                                    static_cast<long>(sign.length())),
-                     ec_sig_deletor};
+                     ECDSA_SIG_free);
 
   if (!ec_sig) {
     ec = AlgorithmErrc::SigningErr;
