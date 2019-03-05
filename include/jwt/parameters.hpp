@@ -349,7 +349,7 @@ custom_check(T&& lambda ) noexcept
 /**
  */
 inline auto
-aud(const jwt::string_view value) noexcept
+aud(jwt::string_view value) noexcept
 {
   return custom_check([value](const auto& obj) noexcept -> std::error_code {
     //Check for issuer
@@ -378,7 +378,7 @@ issuer(jwt::string_view value) noexcept
 /**
  */
 inline auto
-sub(const jwt::string_view value) noexcept
+sub(jwt::string_view value) noexcept
 {
   return custom_check([value](const auto& obj) noexcept -> std::error_code {
     //Check for issuer

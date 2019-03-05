@@ -462,39 +462,6 @@ private: // Data members
   json_t payload_;
 };
 
-template <typename T>
-struct to_json_basic_type {
-    
-    using type = typename std::conditional<std::is_arithmetic<T>::value, 
-      typename std::conditional<std::is_signed<T>::value, int64_t, uint64_t>::type, T>::type;
-};
-
-template <>
-struct to_json_basic_type<bool> {
-    using type = bool;
-};
-
-template <>
-struct to_json_basic_type<double> {
-    using type = double;
-};
-
-template <>
-struct to_json_basic_type<float> {
-    using type = double;
-};
-
-template <>
-struct to_json_basic_type<const char*> {
-    using type = std::string;
-};
-
-template <>
-struct to_json_basic_type<string_view> {
-    using type = std::string;
-};
-
-
 /**
  * Component class representing JWT Payload.
  * The payload is nothing but a set of claims
@@ -641,7 +608,7 @@ public: // Exposed APIs
    * JSON library will throw an exception.
    */
   template <typename T>
-  decltype(auto) get_claim_value(std::string cname) const
+  decltype(auto) get_claim_value(const std::string& cname) const
   {
     return payload_[cname].get<T>();
   }
@@ -664,7 +631,7 @@ public: // Exposed APIs
   /**
    * Remove a claim identified by a claim name.
    */
-  bool remove_claim(std::string cname)
+  bool remove_claim(const std::string& cname)
   {
     auto itr = payload_.find(cname);
     if (itr == payload_.end()) return false;
@@ -690,8 +657,7 @@ public: // Exposed APIs
   //TODO: Not all libc++ version agrees with this
   //because count() is not made const for is_transparent
   //based overload
-  bool has_claim(std::string cname) 
-  const noexcept
+  bool has_claim(const std::string& cname) const noexcept
   {
     return payload_.find(cname) != std::end(payload_);
   }
@@ -712,13 +678,18 @@ public: // Exposed APIs
    * value in the payload.
    */
   template <typename T>
-  bool has_claim_with_value(std::string cname, T&& cvalue) const noexcept
+  bool has_claim_with_value(const std::string& cname, T&& cvalue) const noexcept
   {
     auto itr = payload_.find(cname);
     if (itr == payload_.end()) return false;
+    return *itr == cvalue;
+  }
 
-    using basic_type = typename to_json_basic_type<std::decay_t<T> >::type;
-    const basic_type* ptr = itr->get_ptr<const basic_type*>();
+  bool has_claim_with_value(const std::string& cname, string_view cvalue) const noexcept
+  {
+    auto itr = payload_.find(cname);
+    if (itr == payload_.end()) return false;
+    const std::string* ptr = itr->get_ptr<const std::string*>();
     return ptr != nullptr ? (cvalue == *ptr) : false;
   }
 
@@ -768,7 +739,7 @@ public: // Exposed APIs
    * The presence of this API is required for 
    * making it work with `write_interface`.
    */
-  const json_t& create_json_obj() const
+  const json_t& create_json_obj() const noexcept
   {
     return payload_;
   }
@@ -923,7 +894,7 @@ public: // Exposed APIs
   template <typename T,
             typename=typename std::enable_if_t<
               !std::is_same<system_time_t, std::decay_t<T>>::value>>
-  jwt_object& add_claim(std::string name, T&& value)
+  jwt_object& add_claim(const std::string& name, T&& value)
   {
     payload_.add_claim(name, std::forward<T>(value));
     return *this;
@@ -937,7 +908,7 @@ public: // Exposed APIs
    * Specialization for time points.
    * Eg: Users can set `exp` claim to `chrono::system_clock::now()`.
    */
-  jwt_object& add_claim(std::string name, system_time_t time_point);
+  jwt_object& add_claim(const std::string& name, system_time_t time_point);
 
   /**
    * Provides the glue interface for adding claim.
@@ -956,7 +927,7 @@ public: // Exposed APIs
    *
    * @note: See `jwt_payload::remove_claim` for more details.
    */
-  jwt_object& remove_claim(std::string name);
+  jwt_object& remove_claim(const std::string& name);
 
   /**
    * Provides the glue interface for removing claim.
@@ -974,7 +945,7 @@ public: // Exposed APIs
    *
    * @note: See `jwt_payload::has_claim` for more details.
    */
-  bool has_claim(std::string cname) const noexcept
+  bool has_claim(const std::string& cname) const noexcept
   {
     return payload().has_claim(cname);
   }

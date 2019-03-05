@@ -75,7 +75,7 @@ inline void jwt_header::decode(const jwt::string_view enc_str, std::error_code& 
   }
 
   //Look for the algorithm field
-  auto alg_itr = payload_.find("alg");
+  auto alg_itr = payload_.find(static_cast<const char*>("alg"));
   if (alg_itr == payload_.end()) {
     ec = DecodeErrc::AlgHeaderMiss;
     return;
@@ -85,7 +85,7 @@ inline void jwt_header::decode(const jwt::string_view enc_str, std::error_code& 
 
   if (alg_ != algorithm::NONE)
   {
-    auto itr = payload_.find("typ");
+    auto itr = payload_.find(static<const char*>("typ"));
 
     if (itr != payload_.end()) {
       const auto& typ = itr.value().get<std::string>();
@@ -274,7 +274,7 @@ inline void jwt_object::set_parameters()
   return;
 }
 
-inline jwt_object& jwt_object::add_claim(std::string name, system_time_t tp)
+inline jwt_object& jwt_object::add_claim(const std::string& name, system_time_t tp)
 {
   return add_claim(
       name,
@@ -283,7 +283,7 @@ inline jwt_object& jwt_object::add_claim(std::string name, system_time_t tp)
       );
 }
 
-inline jwt_object& jwt_object::remove_claim(std::string name)
+inline jwt_object& jwt_object::remove_claim(const std::string& name)
 {
   payload_.remove_claim(name);
   return *this;
