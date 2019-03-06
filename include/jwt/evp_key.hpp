@@ -156,6 +156,19 @@ public:
     return pkey_;
   }
 
+/**
+   * Assign an existing OpenSSL EVP_PKEY pointer to the object.
+   *
+   * Notice it would take over the ownership of `pkey`; i.e., it would
+   * NOT increment the reference count of `pkey` during the construction
+   * of the object and the reference count of `pkey` would be decemented
+   * when the object is destructed.
+   */
+  void assign(EVP_PKEY* pkey) {
+    if (pkey_) EVP_PKEY_up_ref(pkey_);
+    pkey_ = pkey;
+  }
+
   const ec_key_st* ec_key() const noexcept 
   {
     return pkey_ ? EVP_PKEY_get0_EC_KEY(pkey_) : 0;
