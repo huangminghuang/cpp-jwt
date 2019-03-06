@@ -978,11 +978,11 @@ public: // Exposed APIs
   std::string signature() const;
 
   template <typename Key> 
-  std::string signature(params::detail::secret_param<Key, algo::UNKN>&& s, std::error_code& ec) const;
+  std::string signature(std::error_code& ec, params::detail::secret_param<Key, algo::UNKN>&& s) const;
 
   template <typename Key, typename Hasher> 
   std::enable_if_t<!std::is_same<Hasher, algo::UNKN>::value, std::string> 
-  signature(params::detail::secret_param<Key, Hasher>&& s, std::error_code& ec);
+  signature(std::error_code& ec, params::detail::secret_param<Key, Hasher>&& s);
 
   template <typename Key> 
   std::string signature(params::detail::secret_param<Key, algo::UNKN>&& s) const;

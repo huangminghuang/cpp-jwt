@@ -158,9 +158,10 @@ TEST (ESAlgo, ES384EncodingDecodingNewApiTest)
      .add_claim("exp", 4682665886) // Expires on Sunday, May 22, 2118 12:31:26 PM GMT
      ;
 
-  auto enc_str = obj.signature(secret<jwt::algo::ES384>(privkey));
-
   std::error_code ec;
+  auto enc_str = obj.signature(ec, secret<jwt::algo::ES384>(privkey));
+  EXPECT_FALSE (ec);
+  
   auto dec_obj = jwt::decode(enc_str, ec, verify(true), secret<jwt::algo::ES384>(pubkey));
 
   EXPECT_FALSE (ec);

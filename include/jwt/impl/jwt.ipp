@@ -291,7 +291,7 @@ inline jwt_object& jwt_object::remove_claim(const std::string& name)
 
 inline std::string jwt_object::signature(std::error_code& ec) const
 {
-  return signature(params::secret(secret_), ec);
+  return signature(ec, params::secret(secret_));
 }
 
 inline std::string jwt_object::signature() const
@@ -300,7 +300,7 @@ inline std::string jwt_object::signature() const
 }
 
 template <typename Key> 
-inline std::string jwt_object::signature(params::detail::secret_param<Key, algo::UNKN>&& s, std::error_code& ec) const
+inline std::string jwt_object::signature(std::error_code& ec, params::detail::secret_param<Key, algo::UNKN>&& s) const
 {
   return detail::encode(std::move(s).get(*this), UNKNSign{header_.algo()}, *this, ec);
 }
@@ -308,7 +308,7 @@ inline std::string jwt_object::signature(params::detail::secret_param<Key, algo:
 template <typename Key, typename Hasher> 
 inline std::enable_if_t<!std::is_same<Hasher, algo::UNKN>::value, std::string> 
 
-jwt_object::signature(params::detail::secret_param<Key, Hasher>&& s, std::error_code& ec)
+jwt_object::signature(std::error_code& ec, params::detail::secret_param<Key, Hasher>&& s)
 {
   header_.algo(Hasher::alg);
   using signer = typename Hasher::signer;
@@ -319,7 +319,7 @@ template <typename Key>
 inline std::string jwt_object::signature(params::detail::secret_param<Key, algo::UNKN>&& s) const
 {
   std::error_code ec;
-  std::string res = this->signature(std::forward<params::detail::secret_param<Key, algo::UNKN>>(s), ec);
+  std::string res = this->signature(ec, std::forward<params::detail::secret_param<Key, algo::UNKN>>(s));
   if (ec) {
     throw SigningError(ec.message());
   }
@@ -331,7 +331,7 @@ inline std::enable_if_t<!std::is_same<Hasher, algo::UNKN>::value, std::string>
 jwt_object::signature(params::detail::secret_param<Key, Hasher>&& s)
 {
   std::error_code ec;
-  std::string res = this->signature(std::forward<params::detail::secret_param<Key, Hasher>>(s), ec);
+  std::string res = this->signature(ec, std::forward<params::detail::secret_param<Key, Hasher>>(s));
   if (ec) {
     throw SigningError(ec.message());
   }
