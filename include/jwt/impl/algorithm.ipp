@@ -23,6 +23,20 @@ SOFTWARE.
 #ifndef CPP_JWT_ALGORITHM_IPP
 #define CPP_JWT_ALGORITHM_IPP
 
+#if  OPENSSL_VERSION_NUMBER < 0x10100000L
+// provide OpenSSL 1.1.0+ APIs for OpenSSL 1.0.2. 
+inline EVP_MD_CTX * EVP_MD_CTX_new() 
+{
+  return EVP_MD_CTX_create();
+}
+
+inline void EVP_MD_CTX_free(EVP_MD_CTX *ctx)
+{
+  EVP_MD_CTX_destroy(ctx);
+}
+#endif
+
+
 namespace jwt {
 
 template <typename Hasher>
@@ -268,9 +282,9 @@ verify_result_t PEMSign<Hasher>::verify(
     }
   }
 
-  auto mdctx_ptr = make_unique_ptr(EVP_MD_CTX_create(), EVP_MD_CTX_destroy);
+  auto mdctx_ptr = make_unique_ptr(EVP_MD_CTX_new(), EVP_MD_CTX_free);
   if (!mdctx_ptr) {
-    throw MemoryAllocationException("EVP_MD_CTX_create failed");
+    throw MemoryAllocationException("EVP_MD_CTX_new failed");
   }
 
   if (EVP_DigestVerifyInit(
@@ -301,10 +315,10 @@ std::string PEMSign<Hasher>::evp_digest(
 {
   ec.clear();
 
-  auto mdctx_ptr = make_unique_ptr(EVP_MD_CTX_create(), EVP_MD_CTX_destroy);
+  auto mdctx_ptr = make_unique_ptr(EVP_MD_CTX_new(), EVP_MD_CTX_free);
 
   if (!mdctx_ptr) {
-    throw MemoryAllocationException("EVP_MD_CTX_create failed");
+    throw MemoryAllocationException("EVP_MD_CTX_new failed");
   }
 
   //Initialiaze the digest algorithm
