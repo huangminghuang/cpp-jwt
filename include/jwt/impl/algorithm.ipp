@@ -118,6 +118,7 @@ sign_result_t UNKNSign::sign(jwt::string_view key, jwt::string_view data) const
   case algorithm::RS512:
     return PEMSign<algo::RS512>().sign(key, data);
   case algorithm::ES256:
+  case algorithm::ES256K:
     return PEMSign<algo::ES256>().sign(key, data);
   case algorithm::ES384:
     return PEMSign<algo::ES384>().sign(key, data);
@@ -144,6 +145,7 @@ sign_result_t UNKNSign::sign(const jwt::evp_privkey& key, jwt::string_view data)
   case algorithm::RS512:
     return PEMSign<algo::RS512>().sign(key, data);
   case algorithm::ES256:
+  case algorithm::ES256K:
     return PEMSign<algo::ES256>().sign(key, data);
   case algorithm::ES384:
     return PEMSign<algo::ES384>().sign(key, data);
@@ -174,7 +176,8 @@ UNKNSign::verify(jwt::string_view key, jwt::string_view head, jwt::string_view s
   case algorithm::RS512:
     return  PEMSign<algo::RS512>().verify(key, head, sign);
   case algorithm::ES256:
-    return  PEMSign<algo::ES256>().verify(key, head, sign);
+  case algorithm::ES256K:
+    return  PEMSign<algo::ES256>().verify(key, head, sign);  
   case algorithm::ES384:
     return PEMSign<algo::ES384>().verify(key, head, sign);
   case algorithm::ES512:
@@ -202,6 +205,7 @@ UNKNSign::verify(const evp_pubkey& key, jwt::string_view head, jwt::string_view 
   case algorithm::RS512:
     return  PEMSign<algo::RS512>().verify(key, head, sign);
   case algorithm::ES256:
+  case algorithm::ES256K:
     return  PEMSign<algo::ES256>().verify(key, head, sign);
   case algorithm::ES384:
     return PEMSign<algo::ES384>().verify(key, head, sign);

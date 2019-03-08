@@ -74,6 +74,7 @@ enum class algorithm
   RS384,
   RS512,
   ES256,
+  ES256K,
   ES384,
   ES512,
   UNKN,
@@ -200,6 +201,18 @@ struct ES256
   }
 };
 
+struct ES256K
+{
+  static constexpr int type = EVP_PKEY_EC;
+  typedef PEMSign<ES256K> signer;
+  static constexpr auto alg = algorithm::ES256K;
+
+  const EVP_MD* operator()() noexcept
+  {
+    return EVP_sha256();
+  }
+};
+
 /**
  * ES384 algorithm.
  */
@@ -254,6 +267,7 @@ inline jwt::string_view alg_to_str(SCOPED_ENUM algorithm alg) noexcept
     case algorithm::RS384: return "RS384";
     case algorithm::RS512: return "RS512";
     case algorithm::ES256: return "ES256";
+    case algorithm::ES256K: return "ES256K";
     case algorithm::ES384: return "ES384";
     case algorithm::ES512: return "ES512";
     case algorithm::TERM:  return "TERM";
@@ -281,6 +295,7 @@ inline SCOPED_ENUM algorithm str_to_alg(const jwt::string_view alg) noexcept
   if (!strcasecmp(alg.data(), "rs384")) return algorithm::RS384;
   if (!strcasecmp(alg.data(), "rs512")) return algorithm::RS512;
   if (!strcasecmp(alg.data(), "es256")) return algorithm::ES256;
+  if (!strcasecmp(alg.data(), "es256k")) return algorithm::ES256K;
   if (!strcasecmp(alg.data(), "es384")) return algorithm::ES384;
   if (!strcasecmp(alg.data(), "es512")) return algorithm::ES512;
 
