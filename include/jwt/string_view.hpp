@@ -362,11 +362,11 @@ private:
 /// Helper typedef
 using string_view = basic_string_view<char>;
 
-bool operator == (string_view lhs, string_view rhs) {
+inline bool operator == (string_view lhs, string_view rhs) {
   return lhs.compare(rhs) == 0;
 }
 
-bool operator != (string_view lhs, string_view rhs) {
+inline bool operator != (string_view lhs, string_view rhs) {
   return lhs.compare(rhs) != 0;
 }
 

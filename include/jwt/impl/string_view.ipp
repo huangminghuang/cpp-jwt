@@ -259,7 +259,7 @@ constexpr bool operator>= (basic_string_view<CharT, Traits> a,
 }
 
 template <typename CharT, typename Traits>
-std::ostream& operator<< (std::ostream& os, basic_string_view<CharT, Traits> sv)
+inline std::ostream& operator<< (std::ostream& os, basic_string_view<CharT, Traits> sv)
 {
   os.write(sv.data(), sv.length());
   return os;
