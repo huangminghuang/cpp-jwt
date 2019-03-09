@@ -16,6 +16,9 @@ inline void EVP_PKEY_up_ref(EVP_PKEY* pkey)
 
 inline EC_KEY *EVP_PKEY_get0_EC_KEY(EVP_PKEY *pkey)
 {
+  if (pkey->type != EVP_PKEY_EC) {
+      return nullptr;
+  }
   return pkey->pkey.ec;
 }
 #endif
@@ -25,98 +28,98 @@ namespace jwt {
 /**
  */
 template <typename T, typename Deleter>
-std::unique_ptr<T, Deleter> make_unique_ptr(T* ptr, Deleter deleter) {
+std::unique_ptr<T, Deleter> make_unique_ptr(T* ptr, Deleter deleter) 
+{
    return std::unique_ptr<T, Deleter>(ptr, deleter);
 }
 
-
-struct pem_str 
+struct pub_pem_str
 {
   string_view value;
-  operator bool() const { return !value.empty(); }
 };
 
-class pem_file 
+struct priv_pem_str
 {
-public:
+  string_view value;
+};
+
+struct pub_pem_file 
+{
+  const char* filename;
+};
+
+struct priv_pem_file 
+{
+  const char* filename;
+};
+
+inline EVP_PKEY* 
+to_evp_pkey(pub_pem_str from) noexcept 
+{
+  auto bufkey = make_unique_ptr(
+    BIO_new_mem_buf((void*)from.value.data(), static_cast<int>(from.value.length())), BIO_free_all);
+  return PEM_read_bio_PUBKEY(bufkey.get(), nullptr, nullptr, nullptr);
+}
+
+inline EVP_PKEY* 
+to_evp_pkey(priv_pem_str from) noexcept 
+{
+  auto bufkey = make_unique_ptr(
+    BIO_new_mem_buf((void*)from.value.data(), static_cast<int>(from.value.length())), BIO_free_all);
+  return PEM_read_bio_PrivateKey(bufkey.get(), nullptr, nullptr, nullptr);
+}
+
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable: 4996)
 #endif
+inline EVP_PKEY* 
+to_evp_pkey(pub_pem_file from) noexcept 
+{
+  auto fp = make_unique_ptr(fopen(from.filename, "rb"), fclose);
+  return PEM_read_PUBKEY(fp.get(), nullptr, nullptr, nullptr);
+}
 
-  pem_file(const char* filename) noexcept
-  : fp_(fopen(filename, "rb")) {
-  }
-
+inline EVP_PKEY* 
+to_evp_pkey(priv_pem_file from) noexcept 
+{
+  auto fp = make_unique_ptr(fopen(from.filename, "rb"), fclose);
+  return PEM_read_PrivateKey(fp.get(), nullptr, nullptr, nullptr);
+}
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
-  ~pem_file() { if (fp_)  { fclose(fp_); } }
-
-  pem_file(const pem_file&) = delete;
-  pem_file& operator=(const pem_file&) = delete;
-  pem_file(pem_file&& other) noexcept
-  : fp_(other.fp_) 
-  { 
-    other.fp_ = 0;
-  }
-
-  FILE* get() const noexcept { return fp_; }
-  bool empty() const { return fp_ == nullptr; };
-  operator bool() const { return fp_; }
-private:
-  FILE* fp_=0;
-};
-
-
-struct pem_pubkey_tag 
-{
-  static EVP_PKEY* read_key(BIO *bp, EVP_PKEY **x,pem_password_cb *cb, void *u) { return PEM_read_bio_PUBKEY(bp, x, cb, u); }
-  static EVP_PKEY* read_key(FILE *fp, EVP_PKEY **x,pem_password_cb *cb, void *u) { return PEM_read_PUBKEY(fp, x, cb, u); }
-};
-
-struct pem_privatekey_tag 
-{
-  static EVP_PKEY* read_key(BIO *bp, EVP_PKEY **x,pem_password_cb *cb, void *u) { return PEM_read_bio_PrivateKey(bp, x, cb, u); }
-  static EVP_PKEY* read_key(FILE *fp, EVP_PKEY **x,pem_password_cb *cb, void *u) { return PEM_read_PrivateKey(fp, x, cb, u); }
-};
 
 /**
- * A Wrapper class for OpenSSL EVP_PKEY*. It supports the reference counting mechanism used by OpenSSL.   
+ * A Wrapper class for OpenSSL @a EVP_PKEY*. It supports the reference counting mechanism used by OpenSSL.   
  */
 
-template <typename KeyTag>
 class evp_key 
 {
 public:
   evp_key() = default;
-  evp_key(pem_str pem_key)
-  {
-    auto bufkey = make_unique_ptr(
-      BIO_new_mem_buf((void*)pem_key.value.data(), static_cast<int>(pem_key.value.length())), BIO_free_all);
-
-    if (!bufkey) {
-      throw MemoryAllocationException("BIO_new_mem_buf failed");
-    }
-    pkey_ = KeyTag::read_key(bufkey.get(), nullptr, nullptr, nullptr);
-  }
-
-  explicit evp_key(FILE* fp) noexcept
-  : pkey_( fp ? KeyTag::read_key(fp, nullptr, nullptr, nullptr) : nullptr) 
-  {
-  }
-
-  evp_key(pem_file&& keyfile) noexcept
-  : evp_key(keyfile.get())
-  {
-  }
 
   /**
-   * Contruct an evp_key object with an existing OpenSSL EVP_PKEY pointer.
+   * Construct an evp_key from a type T where the expression @a to_evp_pkey(T())  returns 
+   * an existing OpenSSL @a EVP_PKEY pointer.
    *
-   * Notice it would take over the ownership of `pkey`; i.e., it would
-   * NOT increment the reference count of `pkey` during the construction
-   * of the object and the reference count of `pkey` would be decemented
+   * Notice it would take over the ownership of the pointer return by @a to_evp_pkey(T()); 
+   * i.e., it would NOT increment the reference count of returned pointer during the construction
+   * of the object and the reference count of returned pointer would be decemented when the
+   * object is destructed.
+   */
+  template <typename T>
+  explicit evp_key(T&& keygen) noexcept(noexcept(to_evp_pkey( std::forward<T>(keygen) )))
+  : pkey_(to_evp_pkey(std::forward<T>(keygen)))
+  {
+  } 
+
+  /**
+   * Contruct an evp_key object with an existing OpenSSL @a EVP_PKEY pointer.
+   *
+   * Notice it would take over the ownership of @a pkey; i.e., it would
+   * NOT increment the reference count of @a pkey during the construction
+   * of the object and the reference count of @a pkey would be decemented
    * when the object is destructed.
    */
   explicit evp_key(EVP_PKEY* pkey) noexcept
@@ -126,7 +129,7 @@ public:
 
   ~evp_key() noexcept 
   {
-    if (pkey_) EVP_PKEY_free(pkey_);
+    EVP_PKEY_free(pkey_);
   }
 
   evp_key(const evp_key& other) noexcept
@@ -143,10 +146,16 @@ public:
 
   evp_key& operator = (const evp_key& other) noexcept 
   {
-    EVP_PKEY* temp = pkey_;
-    pkey_ = other.pkey_;
-    if (pkey_) EVP_PKEY_up_ref(pkey_);
-    if (temp) EVP_PKEY_free(temp);
+    evp_key tmp(other);
+    swap(tmp, *this);
+    return *this;
+  }
+
+  evp_key& operator = (evp_key&& other) noexcept 
+  {
+    evp_key tmp(std::move(other));
+    swap(tmp, *this);
+    return *this;
   }
 
   int id() const noexcept { return EVP_PKEY_id(pkey_); }
@@ -159,28 +168,45 @@ public:
 /**
    * Assign an existing OpenSSL EVP_PKEY pointer to the object.
    *
-   * Notice it would take over the ownership of `pkey`; i.e., it would
-   * NOT increment the reference count of `pkey` during the construction
-   * of the object and the reference count of `pkey` would be decemented
+   * Notice it would take over the ownership of @a pkey; i.e., it would
+   * NOT increment the reference count of @a pkey during the construction
+   * of the object and the reference count of @a pkey would be decemented
    * when the object is destructed.
    */
-  void assign(EVP_PKEY* pkey) {
-    if (pkey_) EVP_PKEY_up_ref(pkey_);
+  void assign(EVP_PKEY* pkey) noexcept 
+  {
+    if (pkey_) EVP_PKEY_free(pkey_);
     pkey_ = pkey;
   }
 
-  const ec_key_st* ec_key() const noexcept 
+  template <typename T>
+  void assign(T&& keygen) noexcept(noexcept(to_evp_pkey( std::forward<T>(keygen) )))
+  {
+    this->assign(to_evp_pkey(std::forward<T>(keygen)));
+  } 
+
+  template <typename T>
+  evp_key& operator = (T&& keygen) noexcept(noexcept(to_evp_pkey( std::forward<T>(keygen) )))
+  {
+    this->assign(std::forward<T>(keygen));
+    return *this;
+  } 
+
+  EC_KEY* ec_key() const noexcept 
   {
     return pkey_ ? EVP_PKEY_get0_EC_KEY(pkey_) : 0;
   }
 
   bool empty() const { return pkey_ == nullptr; };
   operator bool() const { return pkey_; }
+
+  friend void swap(evp_key& lhs, evp_key& rhs) noexcept
+  {
+    std::swap(lhs.pkey_, rhs.pkey_);
+  }
 private:
   EVP_PKEY* pkey_ = nullptr;
 };
 
-typedef evp_key<pem_pubkey_tag> evp_pubkey;
-typedef evp_key<pem_privatekey_tag> evp_privkey;
 
 } // namespace jwt

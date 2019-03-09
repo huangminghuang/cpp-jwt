@@ -66,14 +66,7 @@ struct payload_param
   MappingConcept payload_;
 };
 
-template <typename F, typename... Args>
-struct is_invocable :
-    std::is_constructible<
-        std::function<void(Args ...)>,
-        std::reference_wrapper<typename std::remove_reference<F>::type>
-    >
-{
-};
+
 
 
 /**
@@ -90,18 +83,21 @@ template <typename Key, typename Hasher = algo::UNKN>
 struct secret_param
 {
   using hash = Hasher;
+  template <typename T, typename U>
+  using is_invocable = jwt::detail::meta::is_invocable<T,U>;
 
   Key get() const { return key_; }
-  template <typename U>
-  Key get( U&& ,std::enable_if_t<!is_invocable<Key, U>::value && std::is_reference<Key>::value>* =0) const  { return key_; }
+  template <typename U,
+            typename std::enable_if_t<!is_invocable<Key, U>::value && std::is_reference<Key>::value, int> = 0>
+  Key get( U&&) const { return key_; }
 
-  template <typename U>
-  Key get( U&& u,std::enable_if_t<!is_invocable<Key, U>::value && !std::is_reference<Key>::value>* =0) && { 
-    return std::move(key_); 
-  }
+  template <typename U,
+            typename std::enable_if_t<!is_invocable<Key, U>::value && !std::is_reference<Key>::value, int> = 0>
+  Key get( U&& u) && { return std::move(key_); }
 
-  template <typename U>
-  auto get(U&& u,std::enable_if_t<is_invocable<Key, U>::value>* =0) const { return key_(u);}
+  template <typename U,
+            typename std::enable_if_t<is_invocable<Key, U>::value, int> = 0>
+  auto get(U&& u) const { return key_(u);}
   Key key_;
 };
 /**

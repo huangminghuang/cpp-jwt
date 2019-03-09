@@ -148,8 +148,8 @@ TEST (ESAlgo, ES384EncodingDecodingNewApiTest)
   std::string pubkey_str = read_from_file(EC384_PUB_KEY);
   std::string privkey_str = read_from_file(EC384_PRIV_KEY);
 
-  jwt::evp_pubkey pubkey = jwt::pem_str{pubkey_str};
-  jwt::evp_privkey privkey = jwt::pem_str{privkey_str};
+  jwt::evp_key pubkey{jwt::pub_pem_str{pubkey_str}};
+  jwt::evp_key privkey{jwt::priv_pem_str{privkey_str}};
 
   EXPECT_TRUE(pubkey.get());
   EXPECT_TRUE(privkey.get());
@@ -172,7 +172,7 @@ TEST (ESAlgo, ES384EncodingDecodingNewApiTest)
   EXPECT_TRUE (dec_obj.has_claim("exp"));
   EXPECT_TRUE (obj.payload().has_claim_with_value("exp", 4682665886));
 
-  auto dec_obj2 = jwt::decode(enc_str, ec, verify(true), secret([&pubkey](const jwt::jwt_object& obj) -> jwt::evp_pubkey { 
+  auto dec_obj2 = jwt::decode(enc_str, ec, verify(true), secret([&pubkey](const jwt::jwt_object& obj) -> jwt::evp_key { 
     if (obj.header().algo() == jwt::algorithm::ES384 && obj.payload().get_claim_value<std::string>("iss") == "arun.muralidharan") {
       return pubkey;
     }
@@ -184,9 +184,9 @@ TEST (ESAlgo, ES384EncodingDecodingNewApiTest)
 
 #if !defined(_WIN64) && !defined(_WIN32)
 // using PEM_read_PUBKEY() would trigger "OPENSSL_Uplink(7120B000,08): no OPENSSL_Applink" on windows, skip it for now.
-  auto dec_obj3 = jwt::decode(enc_str, ec, verify(true), secret<jwt::algo::ES384>([](const jwt::jwt_object& obj) -> jwt::evp_pubkey { 
+  auto dec_obj3 = jwt::decode(enc_str, ec, verify(true), secret<jwt::algo::ES384>([](const jwt::jwt_object& obj) -> jwt::evp_key { 
     if (obj.payload().get_claim_value<std::string>("iss") == "arun.muralidharan") {
-      return jwt::pem_file{EC384_PUB_KEY};
+      return jwt::evp_key{jwt::pub_pem_file{EC384_PUB_KEY}};
     }
     return {};
   }));
@@ -201,8 +201,8 @@ TEST (ESAlgo, ES256KEncodingDecodingNewApiTest) {
   std::string pubkey_str = read_from_file(EC256K_PUB_KEY);
   std::string privkey_str = read_from_file(EC256K_PRIV_KEY);
 
-  jwt::evp_pubkey pubkey = jwt::pem_str{pubkey_str};
-  jwt::evp_privkey privkey = jwt::pem_str{privkey_str};
+  jwt::evp_key pubkey{jwt::pub_pem_str{pubkey_str}};
+  jwt::evp_key privkey{jwt::priv_pem_str{privkey_str}};
 
   EXPECT_TRUE(pubkey.get());
   EXPECT_TRUE(privkey.get());
@@ -217,10 +217,13 @@ TEST (ESAlgo, ES256KEncodingDecodingNewApiTest) {
   std::error_code ec;
   auto enc_str = obj.signature(ec, secret<jwt::algo::ES256K>(privkey));
   EXPECT_FALSE (ec);
+  auto header = obj.header().create_json_obj();
+  EXPECT_TRUE(header.value("alg", "") == "ES256K");
   
   auto dec_obj = jwt::decode(enc_str, ec, verify(true), secret<jwt::algo::ES256K>(pubkey));
 
   EXPECT_FALSE (ec);
+  EXPECT_TRUE(dec_obj.header().create_json_obj().value("alg", "") == "ES256K");
   EXPECT_EQ (dec_obj.header().algo(), jwt::algorithm::ES256K);
   EXPECT_TRUE (dec_obj.has_claim("exp"));
   EXPECT_TRUE (obj.payload().has_claim_with_value("exp", 4682665886));

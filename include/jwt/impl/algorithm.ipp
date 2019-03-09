@@ -100,7 +100,8 @@ verify_result_t HMACSign<Hasher>::verify(
 }
 
 
-sign_result_t UNKNSign::sign(jwt::string_view key, jwt::string_view data) const
+inline sign_result_t 
+UNKNSign::sign(jwt::string_view key, jwt::string_view data) const
 {
   switch (alg_) {
   case algorithm::HS256:
@@ -130,7 +131,8 @@ sign_result_t UNKNSign::sign(jwt::string_view key, jwt::string_view data) const
   __builtin_unreachable();
 }
 
-sign_result_t UNKNSign::sign(const jwt::evp_privkey& key, jwt::string_view data) const
+inline sign_result_t 
+UNKNSign::sign(const jwt::evp_key& key, jwt::string_view data) const
 {
   switch (alg_) {
   case algorithm::HS256:
@@ -157,7 +159,7 @@ sign_result_t UNKNSign::sign(const jwt::evp_privkey& key, jwt::string_view data)
   __builtin_unreachable();
 }
 
-verify_result_t
+inline verify_result_t
 UNKNSign::verify(jwt::string_view key, jwt::string_view head, jwt::string_view sign) const
 {
   switch (alg_) {
@@ -189,8 +191,8 @@ UNKNSign::verify(jwt::string_view key, jwt::string_view head, jwt::string_view s
   return {false, std::error_code{}};
 }
 
-verify_result_t
-UNKNSign::verify(const evp_pubkey& key, jwt::string_view head, jwt::string_view sign) const
+inline verify_result_t
+UNKNSign::verify(const evp_key& key, jwt::string_view head, jwt::string_view sign) const
 {
   switch (alg_) {
   case algorithm::HS256:
@@ -225,12 +227,12 @@ verify_result_t PEMSign<Hasher>::verify(
     const jwt::string_view head,
     const jwt::string_view jwt_sign) const
 {
-  return verify(evp_pubkey(pem_str{key}), head, jwt_sign);
+  return verify(evp_key(pub_pem_str{key}), head, jwt_sign);
 }
 
 template <typename Hasher>
 verify_result_t PEMSign<Hasher>::verify(
-    const evp_pubkey& pkey,
+    const evp_key& pkey,
     const jwt::string_view head,
     const jwt::string_view jwt_sign) const
 {
@@ -359,7 +361,7 @@ std::string PEMSign<Hasher>::evp_digest(
 
 template <typename Hasher>
 std::string PEMSign<Hasher>::public_key_ser(
-    const evp_privkey& pkey, 
+    const evp_key& pkey, 
     jwt::string_view sign, 
     std::error_code& ec)
 {

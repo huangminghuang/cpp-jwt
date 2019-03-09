@@ -996,8 +996,7 @@ public: // Exposed APIs
    * TODO: Returns an error_code instead of taking
    * by reference.
    */
-  template <typename Params>
-  std::error_code verify(const Params& dparams) const noexcept;
+  std::error_code verify_with_leeway(uint32_t) const noexcept;
 
 private: // private APIs
   /**

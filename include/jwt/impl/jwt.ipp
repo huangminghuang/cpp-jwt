@@ -26,6 +26,7 @@ SOFTWARE.
 #include "jwt/config.hpp"
 #include "jwt/detail/meta.hpp"
 #include <algorithm>
+#include <iomanip>
 
 namespace jwt {
 
@@ -138,7 +139,7 @@ inline void jwt_payload::decode(const jwt::string_view enc_str)
 //==================================================================
 namespace detail {
 
-verify_result_t verify(const jwt_object& obj, string_view head, string_view sign) 
+inline verify_result_t verify(const jwt_object& obj, string_view head, string_view sign) 
 {
   if (obj.header().algo() != algorithm::NONE) {
     return {false, std::error_code{DecodeErrc::KeyNotPresent}};
@@ -338,9 +339,8 @@ jwt_object::signature(params::detail::secret_param<Key, Hasher>&& s)
   return res;
 }
 
-template <typename Params>
-std::error_code jwt_object::verify(
-    const Params& dparams) const noexcept
+inline std::error_code 
+jwt_object::verify_with_leeway(uint32_t leeway) const noexcept
 {
 
   //Check for the expiry timings
@@ -353,7 +353,7 @@ std::error_code jwt_object::verify(
     if (! itr->is_number_unsigned()) return VerificationErrc::TypeConversionError;
     auto p_exp = itr->get<uint64_t>();
 
-    if (curr_time > static_cast<uint64_t>(p_exp + dparams.leeway)) {
+    if (curr_time > static_cast<uint64_t>(p_exp + leeway)) {
       return VerificationErrc::TokenExpired;
     }
   } 
@@ -369,7 +369,7 @@ std::error_code jwt_object::verify(
     if (! itr->is_number_unsigned()) return VerificationErrc::TypeConversionError;
     auto p_exp = itr->get<uint64_t>();
 
-    if (static_cast<uint64_t>(p_exp - dparams.leeway) > curr_time) {
+    if (static_cast<uint64_t>(p_exp - leeway) > curr_time) {
       return VerificationErrc::ImmatureSignature;
     }
   }
@@ -527,7 +527,7 @@ jwt_object decode(const jwt::string_view enc_str,
   obj.payload(std::move(payload));
   jwt_object::set_decode_params(dparams, std::forward<Args>(args)...);
   if (dparams.verify) {
-    ec = obj.verify(dparams);
+    ec = obj.verify_with_leeway(dparams.leeway);
 
     if (ec) return obj;
     // Length of the encoded header and payload only.
@@ -584,7 +584,8 @@ jwt_object decode(const jwt::string_view enc_str,
   return jwt_obj;
 }
 
-void jwt_throw_exception(const std::error_code& ec)
+inline void 
+jwt_throw_exception(const std::error_code& ec)
 {
   const auto& cat = ec.category();
 

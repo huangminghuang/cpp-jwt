@@ -453,12 +453,12 @@ struct UNKNSign
   UNKNSign(SCOPED_ENUM algorithm alg): alg_(alg){}
 
   sign_result_t sign(jwt::string_view key, jwt::string_view data) const;
-  sign_result_t sign(const jwt::evp_privkey& key, jwt::string_view data) const;
+  sign_result_t sign(const jwt::evp_key& key, jwt::string_view data) const;
 
   /**
    */
   verify_result_t verify(jwt::string_view key, jwt::string_view head, jwt::string_view sign) const;
-  verify_result_t verify(const jwt::evp_pubkey& key, jwt::string_view head, jwt::string_view sign) const;
+  verify_result_t verify(const jwt::evp_key& key, jwt::string_view head, jwt::string_view sign) const;
 
   algorithm alg_;
 };
@@ -497,7 +497,7 @@ public:
   sign_result_t sign(const jwt::string_view key, const jwt::string_view data) const
   {
 
-    return sign(evp_privkey{pem_str{key}}, data );
+    return sign(evp_key{priv_pem_str{key}}, data );
   }
 
   /**
@@ -513,7 +513,7 @@ public:
    *  jwt::MemoryAllocationException.
    */
 
-  sign_result_t sign(const evp_privkey& pkey, const jwt::string_view data) const
+  sign_result_t sign(const evp_key& pkey, const jwt::string_view data) const
   {
     if (pkey.empty()) return { std::string{}, std::error_code{AlgorithmErrc::KeyNotFoundErr} };
 
@@ -558,7 +558,7 @@ public:
   verify(const jwt::string_view key, const jwt::string_view head, const jwt::string_view sign) const;
 
   verify_result_t 
-  verify(const evp_pubkey& key, const jwt::string_view head, const jwt::string_view sign) const;
+  verify(const evp_key& key, const jwt::string_view head, const jwt::string_view sign) const;
 
 private:
 
@@ -568,7 +568,7 @@ private:
 
   /*!
    */
-  static std::string public_key_ser(const evp_privkey& pkey, jwt::string_view sign, std::error_code& ec);
+  static std::string public_key_ser(const evp_key& pkey, jwt::string_view sign, std::error_code& ec);
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
 

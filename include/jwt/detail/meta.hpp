@@ -228,6 +228,14 @@ using all_true = std::is_same<bool_pack<true, B...>, bool_pack<B..., true>>;
 template <typename... T>
 using are_all_params = all_true<is_parameter_concept<T>::value...>;
 
+template <typename F, typename... Args>
+struct is_invocable :
+    std::is_constructible<
+        std::function<void(Args ...)>,
+        std::reference_wrapper<typename std::remove_reference<F>::type>
+    >
+{
+};
 
 } // END namespace meta
 } // END namespace detail
