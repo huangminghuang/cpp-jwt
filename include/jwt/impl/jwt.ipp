@@ -94,8 +94,6 @@ inline void jwt_header::decode(const jwt::string_view enc_str, std::error_code& 
         ec = DecodeErrc::TypMismatch;
         return;
       }
-
-      typ_ = str_to_type(typ);
     }
   } else {
     //TODO:

@@ -48,52 +48,6 @@ namespace json_ns = nlohmann;
 namespace jwt {
 
 /**
- * The type of header.
- * NOTE: Only JWT is supported currently.
- */
-enum class type
-{
-  NONE = 0,
-  JWT  = 1,
-};
-
-/**
- * Converts a string representing a value of type
- * `enum class type` into its actual type.
- */
-inline enum type str_to_type(std::string typ) noexcept
-{
-  assert (typ.length() && "Empty type string");
-
-  if (!strcasecmp(typ.data(), "jwt")) return type::JWT;
-  else if(!strcasecmp(typ.data(), "none")) return type::NONE;
-
-  assert (0 && "Code not reached");
-  return type::NONE;
-}
-
-
-/**
- * Converts an instance of type `enum class type`
- * to its string equivalent.
- */
-#if defined(__clang__) || !defined(__GNUC__) || __GNUC__ > 5
-constexpr 
-#else
-inline
-#endif  
-jwt::string_view type_to_str(SCOPED_ENUM type typ)
-{
-  switch (typ) {
-    case type::JWT: return "JWT";
-    default:        assert (0 && "Unknown type");
-  };
-  __builtin_unreachable();
-  assert (0 && "Code not reached");
-}
-
-
-/**
  * Registered claim names.
  */
 enum class registered_claims
@@ -265,11 +219,10 @@ public: // 'tors
    * Constructor taking specified algorithm type
    * and JWT type.
    */
-  jwt_header(SCOPED_ENUM algorithm alg, SCOPED_ENUM type typ = type::JWT)
+  jwt_header(SCOPED_ENUM algorithm alg, std::string typ = "JWT")
     : alg_(alg)
-    , typ_(typ)
   {
-    payload_["typ"] = type_to_str(typ_).to_string();
+    payload_["typ"] = typ;
     payload_["alg"] = alg_to_str(alg_).to_string();
   }
 
@@ -325,27 +278,21 @@ public: // Exposed APIs
   /**
    * Set the JWT type.
    */
-  void typ(SCOPED_ENUM type typ) noexcept
-  {
-    typ_ = typ;
-    payload_["typ"] = type_to_str(typ_).to_string();
-  }
-
+  
   /**
-   * Set the JWT type header. String overload.
+   * Set the JWT type header. 
    */
   void typ(std::string sv)
   {
-    typ_ = str_to_type(sv);
     payload_["typ"] = sv;
   }
 
   /**
    * Get the JWT type.
    */
-  SCOPED_ENUM type typ() const noexcept
+  std::string typ() const noexcept
   {
-    return typ_;
+    return payload_.value("typ","");
   }
 
   /**
@@ -388,11 +335,6 @@ public: // Exposed APIs
    */
   bool remove_header(std::string hname)
   {
-    if (hname == "typ") {
-      typ_ = type::NONE;
-      payload_.erase(hname);
-      return true;
-    }
     payload_.erase(hname);
 
     return true;
@@ -404,7 +346,6 @@ public: // Exposed APIs
    */
   bool has_header(std::string hname)
   {
-    if (hname == "typ") return typ_ != type::NONE;
     return payload_.find(hname) != std::end(payload_);
   }
 
@@ -454,10 +395,6 @@ public: // Exposed APIs
 private: // Data members
   /// The Algorithm to use for signature creation
   SCOPED_ENUM algorithm alg_ = algorithm::NONE;
-
-  /// The type of header
-  SCOPED_ENUM type      typ_ = type::JWT;
-
   // The JSON payload object
   json_t payload_;
 };
