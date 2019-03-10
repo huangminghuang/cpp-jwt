@@ -365,7 +365,7 @@ public: // Exposed APIs
       return true;
     }
 
-    payload_.emplace(hname, std::forward<T>(hvalue));
+    payload_.emplace(std::move(hname), std::forward<T>(hvalue));
 
     return true;
   }
@@ -523,7 +523,7 @@ public: // Exposed APIs
     }
 
     //Add it to the json payload
-    payload_.emplace(cname, std::forward<T>(cvalue));
+    payload_.emplace(std::move(cname), std::forward<T>(cvalue));
 
     return true;
   }
