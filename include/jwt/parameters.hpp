@@ -91,13 +91,15 @@ struct secret_param
             typename std::enable_if_t<!is_invocable<Key, U>::value && std::is_reference<Key>::value, int> = 0>
   Key get( U&&) const { return key_; }
 
+#if !defined(_MSC_VER) || (_MSC_VER >= 1920)
   template <typename U,
             typename std::enable_if_t<!is_invocable<Key, U>::value && !std::is_reference<Key>::value, int> = 0>
   Key get( U&& u) && { return std::move(key_); }
+#endif
 
-  template <typename U,
-            typename std::enable_if_t<is_invocable<Key, U>::value, int> = 0>
-  auto get(U&& u) const { return key_(u);}
+  template <typename U>
+  auto get(U&& u, typename std::enable_if_t<is_invocable<Key, U>::value, int> = 0) const { return key_(u);}
+
   Key key_;
 };
 /**

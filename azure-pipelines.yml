@@ -2,9 +2,9 @@
 # CppRestSdk Azure Pipelines Configuration
 
 jobs:
-  - job: Windows_VS2017_x64
+  - job: Windows_latest
     pool:
-      vmImage: 'vs2017-win2016'
+      vmImage: 'windows-latest'
     steps:
     - task: UsePythonVersion@0
       inputs:
@@ -86,8 +86,7 @@ jobs:
       vmImage: 'macOS-10.13'
     steps:
     - script: |
-        brew install ninja openssl
-        brew install --HEAD https://gist.githubusercontent.com/Kronuz/96ac10fbd8472eb1e7566d740c4034f8/raw/gtest.rb
+        brew install ninja conan
       displayName: brew install dependencies
     - script: |
         mkdir build.debug
@@ -96,11 +95,11 @@ jobs:
     - task: CMake@1
       inputs:
         workingDirectory: 'build.debug'
-        cmakeArgs: '-G Ninja -DCMAKE_BUILD_TYPE=Debug -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl ..'
+        cmakeArgs: '-G Ninja -DCMAKE_BUILD_TYPE=Debug ..'
     - task: CMake@1
       inputs:
         workingDirectory: 'build.release'
-        cmakeArgs: '-G Ninja -DCMAKE_BUILD_TYPE=Release -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl ..'
+        cmakeArgs: '-G Ninja -DCMAKE_BUILD_TYPE=Release ..'
     - script: |
         cd build.debug
         ninja
@@ -122,7 +121,7 @@ jobs:
     pool:
       vmImage: 'Ubuntu 16.04'
     dependsOn:
-    - Windows_VS2017_x64
+    - Windows_latest
     - Ubuntu_1604
     - MacOS
     steps:

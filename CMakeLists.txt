@@ -12,7 +12,7 @@ if (CONAN_EXECUTABLE)
 
   if(NOT EXISTS "${CMAKE_BINARY_DIR}/conan.cmake")
     message(STATUS "Downloading conan.cmake from https://github.com/conan-io/cmake-conan")
-    file(DOWNLOAD "https://github.com/conan-io/cmake-conan/raw/v0.13/conan.cmake"
+    file(DOWNLOAD "https://github.com/conan-io/cmake-conan/raw/v0.14/conan.cmake"
                   "${CMAKE_BINARY_DIR}/conan.cmake")
   endif()
 
@@ -21,7 +21,8 @@ if (CONAN_EXECUTABLE)
   conan_cmake_run(CONANFILE conanfile.txt
               BASIC_SETUP CMAKE_TARGETS NO_OUTPUT_DIRS
               BUILD missing)
-  set(CPPJWT_TEST_DEPS ${CONAN_TARGETS})             
+  find_package(Threads REQUIRED)
+  set(CPPJWT_TEST_DEPS ${CONAN_TARGETS} Threads::Threads)
 else()
   find_package(OpenSSL REQUIRED)
   find_package(GTest REQUIRED)
