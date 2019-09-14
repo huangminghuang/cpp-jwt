@@ -13,7 +13,7 @@ class CppJwtConan(ConanFile):
     license = "https://github.com/arun11299/cpp-jwt/blob/master/LICENSE"
     no_copy_source = True
     exports_sources = "include/*", "LICENSE"
-    requires = "OpenSSL/latest_1.1.1x@conan/stable", "jsonformoderncpp/3.7.0@vthiery/stable"  
+    requires = "OpenSSL/1.1.1c@conan/stable", "jsonformoderncpp/3.7.0@vthiery/stable"  
 
     def package_id(self):
         self.info.header_only()
